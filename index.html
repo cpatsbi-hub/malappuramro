@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Branch Portal — Daily Reporting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{
+  --teal:#0d9488;--teal2:#0f766e;--cyan:#0891b2;--coral:#f43f5e;
+  --amber:#f59e0b;--green:#22c55e;--red:#ef4444;
+  --bg:#f0fdfa;--card:#fff;--border:#e2e8f0;--text:#0f172a;--muted:#64748b;
+  --s2:#0ea5e9;--s3:#8b5cf6;--s4:#f97316;
+  --font:'Plus Jakarta Sans',sans-serif;--radius:16px;
+  --shadow:0 4px 20px rgba(13,148,136,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh}
+button{font-family:var(--font);cursor:pointer;border:none;outline:none}
+input,select,textarea{font-family:var(--font)}
+
+/* ─── SETUP OVERLAY ─── */
+.setup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);
+  z-index:300;align-items:center;justify-content:center;padding:20px}
+.setup-overlay.show{display:flex}
+.setup-card{background:#fff;border-radius:var(--radius);padding:28px;width:100%;max-width:440px;
+  box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.setup-title{font-size:1.2rem;font-weight:800;margin-bottom:6px}
+.setup-desc{font-size:.83rem;color:var(--muted);margin-bottom:20px;line-height:1.6}
+.form-control{width:100%;background:#f8fafc;border:1.5px solid var(--border);border-radius:10px;
+  padding:11px 14px;color:var(--text);font-size:.88rem;outline:none;transition:.2s;font-family:var(--font)}
+.form-control:focus{border-color:var(--teal);background:#fff}
+.form-label{font-size:.78rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.04em;margin-bottom:6px;display:block}
+
+/* ─── LOGIN PAGE ─── */
+#loginPage{display:flex;min-height:100vh;align-items:center;justify-content:center;padding:20px;
+  background:linear-gradient(160deg,#f0fdfa 0%,#ecfeff 50%,#f0fdf4 100%)}
+.login-card{background:#fff;border-radius:20px;padding:40px 36px;width:100%;max-width:420px;
+  box-shadow:0 20px 60px rgba(13,148,136,.15),0 4px 20px rgba(0,0,0,.08);position:relative;overflow:hidden}
+.login-card::before{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;
+  background:linear-gradient(135deg,rgba(13,148,136,.08),rgba(8,145,178,.05));border-radius:50%}
+.login-card::after{content:'';position:absolute;bottom:-40px;left:-40px;width:140px;height:140px;
+  background:linear-gradient(135deg,rgba(244,63,94,.06),rgba(245,158,11,.05));border-radius:50%}
+.login-logo{width:64px;height:64px;background:linear-gradient(135deg,var(--teal),var(--cyan));
+  border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;
+  margin-bottom:20px;box-shadow:0 8px 24px rgba(13,148,136,.3)}
+.login-title{font-size:1.6rem;font-weight:800;line-height:1.2;margin-bottom:6px}
+.login-sub{font-size:.85rem;color:var(--muted);margin-bottom:28px;line-height:1.5}
+.branch-select-wrap{position:relative;margin-bottom:16px}
+.branch-select-wrap .form-control{padding-right:40px;cursor:pointer;appearance:none}
+.branch-select-wrap::after{content:'\f107';font-family:'Font Awesome 6 Free';font-weight:900;
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.btn-login{width:100%;padding:14px;border-radius:12px;font-size:.95rem;font-weight:700;
+  background:linear-gradient(135deg,var(--teal),var(--cyan));color:#fff;letter-spacing:.02em;
+  box-shadow:0 6px 20px rgba(13,148,136,.35);transition:.2s}
+.btn-login:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(13,148,136,.4)}
+.btn-login:active{transform:translateY(0)}
+.btn-login:disabled{opacity:.6;cursor:not-allowed;transform:none}
+.remember-info{font-size:.75rem;color:var(--muted);text-align:center;margin-top:14px;
+  display:flex;align-items:center;justify-content:center;gap:6px}
+.api-setup-link{font-size:.75rem;color:var(--teal);cursor:pointer;text-align:center;margin-top:12px;font-weight:600}
+
+/* ─── ALREADY SUBMITTED BANNER ─── */
+.already-banner{background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;
+  border-radius:12px;padding:14px 16px;margin-bottom:16px;display:none}
+.already-banner.show{display:flex;align-items:flex-start;gap:10px}
+.already-banner-icon{font-size:1.2rem;flex-shrink:0;margin-top:1px}
+.already-banner-text{font-size:.82rem;color:#15803d;line-height:1.5}
+.already-banner-text strong{font-weight:700;display:block;margin-bottom:2px}
+
+/* ─── MAIN APP PAGE ─── */
+#appPage{display:none;min-height:100vh;flex-direction:column}
+.app-header{background:linear-gradient(135deg,var(--teal2),var(--cyan));color:#fff;padding:0}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:16px 20px}
+.header-brand{display:flex;align-items:center;gap:12px}
+.header-icon{width:40px;height:40px;background:rgba(255,255,255,.2);border-radius:12px;
+  display:flex;align-items:center;justify-content:center;font-size:1.1rem;backdrop-filter:blur(8px)}
+.header-branch-name{font-size:1rem;font-weight:800;letter-spacing:.01em}
+.header-scale{font-size:.72rem;background:rgba(255,255,255,.2);padding:2px 10px;border-radius:20px;
+  font-weight:600;margin-top:3px;display:inline-block}
+.header-right{display:flex;align-items:center;gap:8px}
+.btn-logout{padding:8px 14px;border-radius:9px;background:rgba(255,255,255,.15);color:#fff;
+  font-size:.8rem;font-weight:600;backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,.2);transition:.2s}
+.btn-logout:hover{background:rgba(255,255,255,.25)}
+.header-date{padding:10px 20px 14px;font-size:.82rem;opacity:.85;display:flex;align-items:center;gap:8px}
+.sync-badge{font-size:.7rem;background:rgba(255,255,255,.15);padding:2px 8px;border-radius:20px;
+  display:flex;align-items:center;gap:5px}
+.sync-pulse{width:6px;height:6px;border-radius:50%;background:#fff;animation:pulse2 2s infinite}
+@keyframes pulse2{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+.sync-err{background:rgba(239,68,68,.3)!important}
+
+/* ─── STATUS BAR ─── */
+.status-bar{display:flex;gap:10px;padding:12px 16px;background:rgba(255,255,255,.7);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--border);overflow-x:auto}
+.status-chip{flex-shrink:0;padding:6px 14px;border-radius:20px;font-size:.75rem;font-weight:700;
+  white-space:nowrap;display:flex;align-items:center;gap:5px}
+.chip-pending{background:#fef2f2;color:var(--red);border:1px solid #fecaca}
+.chip-done{background:#f0fdf4;color:var(--green);border:1px solid #bbf7d0}
+.chip-total{background:#f0f9ff;color:var(--cyan);border:1px solid #bae6fd}
+.chip-info{background:#fefce8;color:#a16207;border:1px solid #fde68a}
+
+/* ─── QUESTIONS AREA ─── */
+.questions-area{flex:1;padding:16px;max-width:700px;margin:0 auto;width:100%}
+.q-card{background:var(--card);border-radius:var(--radius);padding:20px;margin-bottom:14px;
+  box-shadow:0 2px 12px rgba(0,0,0,.06);border:1.5px solid var(--border);transition:.2s;position:relative;overflow:hidden}
+.q-card::before{content:'';position:absolute;top:0;left:0;width:4px;height:100%;background:linear-gradient(180deg,var(--teal),var(--cyan))}
+.q-card.answered::before{background:linear-gradient(180deg,var(--green),#16a34a)}
+.q-card.answered{border-color:#bbf7d0;background:#f0fdf4}
+.q-num{font-size:.72rem;font-weight:700;color:var(--teal);text-transform:uppercase;
+  letter-spacing:.06em;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.q-answered-badge{background:#dcfce7;color:var(--green);padding:2px 9px;border-radius:20px;font-size:.68rem}
+.q-text{font-size:1rem;font-weight:700;color:var(--text);margin-bottom:16px;line-height:1.5}
+.q-type-tag{font-size:.72rem;color:var(--muted);display:flex;align-items:center;gap:4px;margin-bottom:14px}
+
+/* ─── FORM INPUTS ─── */
+.resp-input{width:100%;background:#f8fafc;border:1.5px solid var(--border);border-radius:10px;
+  padding:11px 14px;color:var(--text);font-size:.9rem;outline:none;transition:.2s;font-family:var(--font)}
+.resp-input:focus{border-color:var(--teal);background:#fff;box-shadow:0 0 0 3px rgba(13,148,136,.1)}
+textarea.resp-input{min-height:90px;resize:vertical}
+.resp-input option{background:#fff}
+
+/* ─── RADIO / CHECKBOX INPUTS ─── */
+.opt-list{display:flex;flex-direction:column;gap:8px}
+.opt-item{display:flex;align-items:center;gap:10px;padding:11px 14px;border-radius:10px;
+  background:#f8fafc;border:1.5px solid var(--border);cursor:pointer;transition:.2s;user-select:none}
+.opt-item:hover{border-color:var(--teal);background:#f0fdfa}
+.opt-item.selected{border-color:var(--teal);background:linear-gradient(135deg,rgba(13,148,136,.08),rgba(8,145,178,.05))}
+.opt-item input[type=radio],.opt-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--teal)}
+.opt-label{font-size:.9rem;font-weight:500;flex:1;cursor:pointer}
+
+/* ─── LINEAR SCALE ─── */
+.linear-wrap{display:flex;flex-direction:column;gap:10px}
+.linear-labels{display:flex;justify-content:space-between;font-size:.75rem;color:var(--muted);font-weight:500}
+.linear-options{display:flex;gap:6px;justify-content:space-between}
+.linear-btn{flex:1;padding:10px 4px;border-radius:9px;font-size:.88rem;font-weight:700;
+  background:#f1f5f9;border:1.5px solid var(--border);color:var(--muted);cursor:pointer;transition:.2s;text-align:center}
+.linear-btn:hover{border-color:var(--teal);color:var(--teal);background:#f0fdfa}
+.linear-btn.active{background:linear-gradient(135deg,var(--teal),var(--cyan));color:#fff;border-color:transparent}
+
+/* ─── STAR RATING ─── */
+.star-row{display:flex;gap:8px;font-size:1.8rem}
+.star{cursor:pointer;color:#e2e8f0;transition:.15s;user-select:none}
+.star.active,.star:hover{color:#f59e0b}
+.star-row:hover .star{color:#f59e0b}
+.star-row .star:hover~.star{color:#e2e8f0}
+
+/* ─── YES/NO ─── */
+.yn-wrap{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.yn-btn{padding:14px;border-radius:12px;font-size:.95rem;font-weight:700;
+  border:1.5px solid var(--border);background:#f8fafc;color:var(--muted);cursor:pointer;transition:.2s;text-align:center}
+.yn-btn:hover{border-color:var(--teal)}
+.yn-btn.selected-yes{background:linear-gradient(135deg,rgba(34,197,94,.1),rgba(22,163,74,.05));border-color:#86efac;color:var(--green)}
+.yn-btn.selected-no{background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(220,38,38,.05));border-color:#fca5a5;color:var(--red)}
+
+/* ─── SUBMIT AREA ─── */
+.submit-area{position:sticky;bottom:0;padding:16px;background:rgba(240,253,250,.95);
+  backdrop-filter:blur(12px);border-top:1px solid var(--border);max-width:700px;margin:0 auto;width:100%}
+.btn-submit{width:100%;padding:16px;border-radius:14px;font-size:1rem;font-weight:800;letter-spacing:.02em;
+  background:linear-gradient(135deg,var(--teal),var(--cyan));color:#fff;
+  box-shadow:0 8px 28px rgba(13,148,136,.4);transition:.25s}
+.btn-submit:hover{transform:translateY(-2px);box-shadow:0 12px 36px rgba(13,148,136,.5)}
+.btn-submit:active{transform:translateY(0)}
+.btn-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-resubmit{background:linear-gradient(135deg,var(--amber),#d97706)!important;
+  box-shadow:0 8px 28px rgba(245,158,11,.4)!important}
+.btn-resubmit:hover{box-shadow:0 12px 36px rgba(245,158,11,.5)!important}
+.submit-hint{font-size:.75rem;color:var(--muted);text-align:center;margin-top:8px}
+
+/* ─── SUCCESS SCREEN ─── */
+#successScreen{display:none;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;background:linear-gradient(160deg,#f0fdfa,#ecfeff);padding:40px 20px;text-align:center}
+.success-icon{width:90px;height:90px;background:linear-gradient(135deg,var(--green),#16a34a);
+  border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:2.5rem;
+  margin-bottom:24px;box-shadow:0 12px 32px rgba(34,197,94,.4);animation:popIn .4s cubic-bezier(.175,.885,.32,1.275)}
+@keyframes popIn{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.success-title{font-size:1.8rem;font-weight:800;margin-bottom:10px;color:var(--text)}
+.success-sub{font-size:.9rem;color:var(--muted);margin-bottom:32px;max-width:300px;line-height:1.6}
+.success-details{background:#fff;border-radius:14px;padding:16px 20px;max-width:320px;width:100%;
+  margin-bottom:24px;box-shadow:var(--shadow);text-align:left}
+.success-detail-row{display:flex;justify-content:space-between;font-size:.8rem;padding:5px 0;
+  border-bottom:1px solid var(--border)}
+.success-detail-row:last-child{border-bottom:none}
+.success-detail-label{color:var(--muted);font-weight:500}
+.success-detail-val{font-weight:700;color:var(--teal)}
+.btn-back{padding:13px 30px;border-radius:12px;background:var(--teal);color:#fff;font-size:.9rem;font-weight:700;cursor:pointer;transition:.2s}
+.btn-back:hover{background:var(--teal2)}
+
+/* ─── LOADING OVERLAY ─── */
+.loading-overlay{display:none;position:fixed;inset:0;background:rgba(240,253,250,.9);
+  backdrop-filter:blur(6px);z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+.loading-overlay.show{display:flex}
+.loading-spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--teal);
+  border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:.9rem;font-weight:600;color:var(--teal)}
+
+/* ─── EMPTY / ERROR ─── */
+.empty-q{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-q-icon{font-size:3rem;margin-bottom:16px;opacity:.3}
+.empty-q p{font-size:.95rem;max-width:280px;margin:0 auto;line-height:1.6}
+
+/* ─── OFFLINE BANNER ─── */
+.offline-banner{background:linear-gradient(135deg,#fef2f2,#ffe4e6);border:1.5px solid #fca5a5;
+  border-radius:10px;padding:10px 14px;margin:12px 16px;font-size:.8rem;color:#dc2626;
+  font-weight:600;display:none;align-items:center;gap:8px}
+.offline-banner.show{display:flex}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);
+  background:#1e293b;color:#fff;padding:11px 20px;border-radius:20px;
+  font-size:.82rem;font-weight:500;z-index:999;display:none;
+  white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.2);animation:slideUp .2s ease}
+.toast.show{display:block}
+.toast.success-toast{background:linear-gradient(135deg,#15803d,#16a34a)}
+.toast.warn-toast{background:linear-gradient(135deg,#92400e,#b45309)}
+@keyframes slideUp{from{transform:translateX(-50%) translateY(10px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:480px){
+  .login-card{padding:28px 22px}
+  .login-title{font-size:1.35rem}
+  .linear-options{gap:4px}
+  .linear-btn{padding:8px 2px;font-size:.8rem}
+  .questions-area{padding:12px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loadingText">Loading…</div>
+</div>
+
+<!-- SETUP OVERLAY -->
+<div class="setup-overlay" id="setupOverlay">
+  <div class="setup-card">
+    <div class="setup-title">⚙️ Connect to Backend</div>
+    <div class="setup-desc">Enter the Google Apps Script Web App URL to connect this portal to your spreadsheet.</div>
+    <label class="form-label">Web App URL</label>
+    <input type="url" class="form-control" id="apiUrlSetup" placeholder="https://script.google.com/macros/s/..." style="margin-bottom:14px">
+    <button onclick="saveApiSetup()" style="width:100%;padding:12px;border-radius:10px;background:var(--teal);color:#fff;font-weight:700;font-size:.9rem;cursor:pointer;border:none;font-family:var(--font)">
+      <i class="fas fa-plug"></i> Save & Connect
+    </button>
+  </div>
+</div>
+
+<!-- LOGIN PAGE -->
+<div id="loginPage">
+  <div class="login-card">
+    <div class="login-logo">🏦</div>
+    <div class="login-title">Branch Daily<br>Reporting</div>
+    <div class="login-sub">Select your branch and submit today's responses quickly and easily.</div>
+    <div class="already-banner" id="alreadyLoginBanner">
+      <div class="already-banner-icon">✅</div>
+      <div class="already-banner-text">
+        <strong>Already submitted today!</strong>
+        You can login again to review or update your responses (if allowed by Regional Office).
+      </div>
+    </div>
+    <label class="form-label">Select Your Branch</label>
+    <div class="branch-select-wrap" style="margin-bottom:16px">
+      <select class="form-control" id="branchSelect" onchange="onBranchSelectChange()">
+        <option value="">— Loading branches… —</option>
+      </select>
+    </div>
+    <button class="btn-login" onclick="doLogin()" id="loginBtn">
+      <i class="fas fa-sign-in-alt" style="margin-right:8px"></i>Login to Branch
+    </button>
+    <div class="remember-info"><i class="fas fa-info-circle"></i> Your branch choice will be remembered next time.</div>
+    <div class="api-setup-link" onclick="openSetup()"><i class="fas fa-cog"></i> Configure Server</div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="appPage" style="display:flex;flex-direction:column">
+  <!-- Header -->
+  <div class="app-header">
+    <div class="header-top">
+      <div class="header-brand">
+        <div class="header-icon">🏢</div>
+        <div>
+          <div class="header-branch-name" id="headerBranchName">Branch Name</div>
+          <span class="header-scale" id="headerBranchScale">Scale —</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <div class="sync-badge" id="syncBadge"><div class="sync-pulse" id="syncPulse"></div><span id="syncText">Synced</span></div>
+        <button class="btn-logout" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
+      </div>
+    </div>
+    <div class="header-date">
+      <i class="fas fa-calendar-day"></i>
+      <span id="headerDate"></span>
+      <span style="opacity:.6;margin-left:4px" id="headerTime"></span>
+    </div>
+  </div>
+
+  <!-- Offline banner -->
+  <div class="offline-banner" id="offlineBanner">
+    <i class="fas fa-wifi-slash"></i> Connection lost. Data may be outdated. Retrying…
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar" id="statusBar"></div>
+
+  <!-- Questions -->
+  <div class="questions-area" id="questionsArea"></div>
+
+  <!-- Submit -->
+  <div class="submit-area">
+    <button class="btn-submit" id="submitBtn" onclick="submitResponses()" disabled>
+      <i class="fas fa-paper-plane" style="margin-right:8px"></i>Submit Responses
+    </button>
+    <div class="submit-hint" id="submitHint">Answer all questions to submit</div>
+  </div>
+</div>
+
+<!-- SUCCESS SCREEN -->
+<div id="successScreen">
+  <div class="success-icon">✓</div>
+  <div class="success-title">Submitted!</div>
+  <div class="success-sub" id="successMsg">Your responses have been recorded successfully.</div>
+  <div class="success-details" id="successDetails"></div>
+  <button class="btn-back" onclick="goBackFromSuccess()">Back to Questions</button>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let API = localStorage.getItem('branch_api_url') || '';
+let branches = [], todayQuestions = [];
+let currentBranch = null;
+let answers = {};
+let syncTimer = null;
+let alreadySubmittedToday = false;
+let submittedCount = 0;
+
+// ═══════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════
+function openSetup(){ document.getElementById('setupOverlay').classList.add('show'); }
+
+function saveApiSetup(){
+  const v = document.getElementById('apiUrlSetup').value.trim();
+  if(!v){ alert('Enter a valid URL'); return; }
+  API = v;
+  localStorage.setItem('branch_api_url', v);
+  document.getElementById('setupOverlay').classList.remove('show');
+  init();
+}
+
+// ═══════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════
+async function apiGet(params){
+  const r = await fetch(API + '?' + new URLSearchParams(params), {redirect:'follow'});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function apiPost(data){
+  const r = await fetch(API, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify(data)
+  });
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+async function init(){
+  if(!API){ document.getElementById('setupOverlay').classList.add('show'); return; }
+  updateDateTime();
+  setInterval(updateDateTime, 1000);
+  showLoading('Loading branches…');
+  try{
+    const r = await apiGet({action:'getBranches'});
+    branches = Array.isArray(r) ? r : [];
+    populateBranchSelect();
+    // Restore remembered branch
+    const saved = localStorage.getItem('saved_branch_id');
+    if(saved && branches.find(b => b.id === saved)){
+      document.getElementById('branchSelect').value = saved;
+      onBranchSelectChange();
+    }
+  }catch(e){
+    showToast('Could not load branches. Check server URL.');
+  }finally{
+    hideLoading();
+  }
+}
+
+function populateBranchSelect(){
+  const sel = document.getElementById('branchSelect');
+  const groups = {'Scale II':[],'Scale III':[],'Scale IV':[]};
+  branches.forEach(b => { if(groups[b.scale]) groups[b.scale].push(b); });
+  sel.innerHTML = '<option value="">— Select Your Branch —</option>';
+  Object.entries(groups).forEach(([scale, bs]) => {
+    if(!bs.length) return;
+    const og = document.createElement('optgroup');
+    og.label = scale;
+    bs.forEach(b => {
+      const opt = document.createElement('option');
+      opt.value = b.id;
+      opt.textContent = b.name;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+}
+
+// Check if already submitted today when branch is selected
+async function onBranchSelectChange(){
+  const branchId = document.getElementById('branchSelect').value;
+  const banner = document.getElementById('alreadyLoginBanner');
+  banner.classList.remove('show');
+  if(!branchId) return;
+  try{
+    const today = new Date().toISOString().split('T')[0];
+    const r = await apiGet({action:'getResponses', date:today, branchId});
+    const existing = Array.isArray(r) ? r : [];
+    if(existing.length > 0){
+      banner.classList.add('show');
+    }
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════
+// LOGIN / LOGOUT
+// ═══════════════════════════════════════════
+async function doLogin(){
+  const branchId = document.getElementById('branchSelect').value;
+  if(!branchId){ showToast('Please select your branch'); return; }
+  currentBranch = branches.find(b => b.id === branchId);
+  if(!currentBranch) return;
+  localStorage.setItem('saved_branch_id', branchId);
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:8px"></i>Loading…';
+  showLoading('Loading questions…');
+  await loadQuestions();
+  showApp();
+  hideLoading();
+  btn.disabled = false;
+  btn.innerHTML = '<i class="fas fa-sign-in-alt" style="margin-right:8px"></i>Login to Branch';
+  startSync();
+}
+
+function showApp(){
+  document.getElementById('loginPage').style.display = 'none';
+  document.getElementById('appPage').style.display = 'flex';
+  document.getElementById('headerBranchName').textContent = currentBranch.name;
+  document.getElementById('headerBranchScale').textContent = currentBranch.scale;
+}
+
+function logout(){
+  stopSync();
+  currentBranch = null;
+  answers = {};
+  alreadySubmittedToday = false;
+  document.getElementById('successScreen').style.display = 'none';
+  document.getElementById('appPage').style.display = 'none';
+  document.getElementById('loginPage').style.display = 'flex';
+  document.getElementById('offlineBanner').classList.remove('show');
+}
+
+// ═══════════════════════════════════════════
+// LOAD QUESTIONS — also checks existing responses
+// ═══════════════════════════════════════════
+async function loadQuestions(){
+  try{
+    const today = new Date().toISOString().split('T')[0];
+    // Fetch questions AND existing responses in parallel
+    const [qr, rr] = await Promise.all([
+      apiGet({action:'getTodayQuestions'}),
+      apiGet({action:'getResponses', date:today, branchId: currentBranch ? currentBranch.id : ''})
+    ]);
+    todayQuestions = Array.isArray(qr) ? qr : [];
+
+    // Pre-fill answers from existing submission
+    const existingResponses = Array.isArray(rr) ? rr : [];
+    alreadySubmittedToday = existingResponses.length > 0;
+    submittedCount = existingResponses.length;
+
+    // Only pre-fill if not already set by user interaction
+    if(alreadySubmittedToday){
+      answers = {};
+      existingResponses.forEach(r => {
+        answers[r.questionId] = r.response;
+      });
+    } else {
+      answers = {};
+    }
+
+    renderQuestions();
+    updateStatus();
+    setSyncStatus(true);
+    document.getElementById('offlineBanner').classList.remove('show');
+  }catch(e){
+    setSyncStatus(false);
+    document.getElementById('offlineBanner').classList.add('show');
+    document.getElementById('questionsArea').innerHTML = `
+      <div class="empty-q"><div class="empty-q-icon">⚠️</div>
+      <p>Could not load questions. Check your connection.</p></div>`;
+  }
+}
+
+// ═══════════════════════════════════════════
+// RENDER QUESTIONS
+// ═══════════════════════════════════════════
+function renderQuestions(){
+  const el = document.getElementById('questionsArea');
+  if(!todayQuestions.length){
+    el.innerHTML = `<div class="empty-q">
+      <div class="empty-q-icon">📋</div>
+      <p>No questions scheduled for today. Check back later!</p>
+    </div>`;
+    document.getElementById('submitBtn').disabled = true;
+    document.getElementById('submitHint').textContent = 'No questions for today';
+    return;
+  }
+
+  // Show already-submitted notice at top if applicable
+  let topBanner = '';
+  if(alreadySubmittedToday){
+    topBanner = `<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:1.5px solid #86efac;
+      border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:flex-start;gap:10px">
+      <span style="font-size:1.1rem">✅</span>
+      <div style="font-size:.82rem;color:#15803d;line-height:1.5">
+        <strong style="display:block;margin-bottom:2px">Already submitted today</strong>
+        Your previous responses are shown below. You may update and resubmit if permitted.
+      </div>
+    </div>`;
+  }
+
+  el.innerHTML = topBanner + todayQuestions.map((q, i) => buildQuestionCard(q, i)).join('');
+
+  // Attach star listeners
+  document.querySelectorAll('.star-row').forEach(row => {
+    const stars = row.querySelectorAll('.star');
+    stars.forEach((s, si) => {
+      s.addEventListener('click', () => {
+        const qid = row.dataset.qid;
+        answers[qid] = si + 1;
+        stars.forEach((st, sti) => st.classList.toggle('active', sti <= si));
+        updateCard(qid);
+      });
+      s.addEventListener('mouseover', () => {
+        stars.forEach((st, sti) => st.classList.toggle('active', sti <= si));
+      });
+      s.addEventListener('mouseout', () => {
+        const cur = answers[row.dataset.qid] || 0;
+        stars.forEach((st, sti) => st.classList.toggle('active', sti < cur));
+      });
+    });
+  });
+
+  updateSubmitButton();
+  updateStatus();
+}
+
+function buildQuestionCard(q, i){
+  const answered = answers[q.id] !== undefined;
+  return `<div class="q-card ${answered ? 'answered' : ''}" id="qcard-${q.id}">
+    <div class="q-num">
+      Question ${i+1} ${answered ? '<span class="q-answered-badge">✓ Answered</span>' : ''}
+    </div>
+    <div class="q-text">${q.text}</div>
+    <div class="q-type-tag"><i class="${qTypeIcon(q.type)}"></i>&nbsp;${qTypeLabel(q.type)}</div>
+    ${buildInput(q)}
+  </div>`;
+}
+
+function buildInput(q){
+  const id = q.id;
+  const cur = answers[id];
+  switch(q.type){
+    case 'short':
+      return `<input type="text" class="resp-input" id="inp-${id}" placeholder="Your answer…"
+        value="${escHtml(cur||'')}" oninput="setAnswer('${id}',this.value)">`;
+    case 'paragraph':
+      return `<textarea class="resp-input" id="inp-${id}" placeholder="Your answer…"
+        oninput="setAnswer('${id}',this.value)">${escHtml(cur||'')}</textarea>`;
+    case 'number':
+      return `<input type="number" class="resp-input" id="inp-${id}" placeholder="Enter a number"
+        value="${cur||''}" oninput="setAnswer('${id}',this.value)">`;
+    case 'date':
+      return `<input type="date" class="resp-input" id="inp-${id}"
+        value="${cur||''}" onchange="setAnswer('${id}',this.value)">`;
+    case 'time':
+      return `<input type="time" class="resp-input" id="inp-${id}"
+        value="${cur||''}" onchange="setAnswer('${id}',this.value)">`;
+    case 'yesno':
+      return `<div class="yn-wrap">
+        <button class="yn-btn ${cur==='Yes'?'selected-yes':''}" onclick="setAnswer('${id}','Yes');renderYN('${id}','Yes')">👍 Yes</button>
+        <button class="yn-btn ${cur==='No'?'selected-no':''}" onclick="setAnswer('${id}','No');renderYN('${id}','No')">👎 No</button>
+      </div>`;
+    case 'mcq':   return buildChoiceInput(q, 'radio');
+    case 'checkbox': return buildChoiceInput(q, 'checkbox');
+    case 'dropdown': return buildDropdown(q);
+    case 'linear':   return buildLinear(q);
+    case 'rating':   return buildRating(q);
+    default:
+      return `<input type="text" class="resp-input" placeholder="Your answer…" oninput="setAnswer('${id}',this.value)">`;
+  }
+}
+
+function buildChoiceInput(q, type){
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const cur = answers[q.id];
+  return `<div class="opt-list">${opts.map((opt, i) => {
+    const checked = type === 'radio'
+      ? (cur === opt)
+      : (Array.isArray(cur) && cur.includes(opt));
+    return `<label class="opt-item ${checked ? 'selected' : ''}" id="optitem-${q.id}-${i}">
+      <input type="${type}" name="q-${q.id}" value="${escHtml(opt)}" ${checked ? 'checked' : ''}
+        onchange="setChoiceAnswer('${q.id}','${type}',this)">
+      <span class="opt-label">${escHtml(opt)}</span>
+    </label>`;
+  }).join('')}</div>`;
+}
+
+function buildDropdown(q){
+  const opts = Array.isArray(q.options) ? q.options : [];
+  const cur = answers[q.id] || '';
+  return `<select class="resp-input" onchange="setAnswer('${q.id}',this.value)">
+    <option value="">— Select an option —</option>
+    ${opts.map(o => `<option value="${escHtml(o)}" ${cur===o?'selected':''}>${escHtml(o)}</option>`).join('')}
+  </select>`;
+}
+
+function buildLinear(q){
+  const opts = q.options || {};
+  const min = opts.min || 1;
+  const max = opts.max || 5;
+  const cur = answers[q.id];
+  const nums = Array.from({length: max - min + 1}, (_, i) => i + min);
+  return `<div class="linear-wrap">
+    <div class="linear-options">
+      ${nums.map(n => `<div class="linear-btn ${cur===n?'active':''}"
+        onclick="setLinear('${q.id}',${n},this)">${n}</div>`).join('')}
+    </div>
+    <div class="linear-labels">
+      <span>${opts.minLabel||'Low'}</span>
+      <span>${opts.maxLabel||'High'}</span>
+    </div>
+  </div>`;
+}
+
+function buildRating(q){
+  const cur = answers[q.id] || 0;
+  const stars = [1,2,3,4,5].map(n =>
+    `<span class="star ${cur>=n?'active':''}" data-v="${n}">★</span>`
+  ).join('');
+  return `<div class="star-row" data-qid="${q.id}">${stars}</div>`;
+}
+
+// ═══════════════════════════════════════════
+// ANSWER MANAGEMENT
+// ═══════════════════════════════════════════
+function setAnswer(qid, val){
+  if(val === '' || val === null || val === undefined) delete answers[qid];
+  else answers[qid] = val;
+  updateCard(qid);
+}
+
+function setLinear(qid, val, clickedEl){
+  answers[qid] = val;
+  const card = document.getElementById('qcard-' + qid);
+  if(card) card.querySelectorAll('.linear-btn').forEach(b => b.classList.remove('active'));
+  clickedEl.classList.add('active');
+  updateCard(qid);
+}
+
+function setChoiceAnswer(qid, type, input){
+  if(type === 'radio'){
+    answers[qid] = input.value;
+    document.querySelectorAll(`[id^="optitem-${qid}-"]`).forEach(el => el.classList.remove('selected'));
+    input.closest('.opt-item').classList.add('selected');
+  } else {
+    let arr = Array.isArray(answers[qid]) ? [...answers[qid]] : [];
+    if(input.checked) arr.push(input.value);
+    else arr = arr.filter(v => v !== input.value);
+    if(arr.length) answers[qid] = arr;
+    else delete answers[qid];
+    input.closest('.opt-item').classList.toggle('selected', input.checked);
+  }
+  updateCard(qid);
+}
+
+function renderYN(qid, val){
+  const card = document.getElementById('qcard-' + qid);
+  if(!card) return;
+  card.querySelectorAll('.yn-btn').forEach(b => {
+    b.className = 'yn-btn';
+    if(b.textContent.includes('Yes') && val === 'Yes') b.className = 'yn-btn selected-yes';
+    if(b.textContent.includes('No') && val === 'No') b.className = 'yn-btn selected-no';
+  });
+  updateCard(qid);
+}
+
+function updateCard(qid){
+  const card = document.getElementById('qcard-' + qid);
+  if(!card) return;
+  const answered = answers[qid] !== undefined;
+  card.classList.toggle('answered', answered);
+  const numEl = card.querySelector('.q-num');
+  if(numEl){
+    const idx = todayQuestions.findIndex(q => q.id === qid) + 1;
+    numEl.innerHTML = `Question ${idx} ${answered ? '<span class="q-answered-badge">✓ Answered</span>' : ''}`;
+  }
+  updateStatus();
+}
+
+function updateStatus(){
+  const total = todayQuestions.length;
+  const done = todayQuestions.filter(q => answers[q.id] !== undefined).length;
+  const pending = total - done;
+  let chips = `
+    <div class="status-chip chip-total"><i class="fas fa-list"></i>${total} Total</div>
+    <div class="status-chip chip-done"><i class="fas fa-check-circle"></i>${done} Answered</div>
+    <div class="status-chip chip-pending"><i class="fas fa-clock"></i>${pending} Remaining</div>`;
+  if(alreadySubmittedToday){
+    chips += `<div class="status-chip chip-info"><i class="fas fa-history"></i>Previously submitted</div>`;
+  }
+  document.getElementById('statusBar').innerHTML = chips;
+  updateSubmitButton();
+}
+
+function updateSubmitButton(){
+  const total = todayQuestions.length;
+  const done = todayQuestions.filter(q => answers[q.id] !== undefined).length;
+  const allDone = done === total && total > 0;
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = !allDone;
+  if(alreadySubmittedToday){
+    btn.className = 'btn-submit btn-resubmit';
+    btn.innerHTML = '<i class="fas fa-sync-alt" style="margin-right:8px"></i>Update & Resubmit';
+    document.getElementById('submitHint').textContent = allDone
+      ? 'Resubmit to update your responses for today'
+      : `${total - done} question${total - done !== 1 ? 's' : ''} remaining`;
+  } else {
+    btn.className = 'btn-submit';
+    btn.innerHTML = '<i class="fas fa-paper-plane" style="margin-right:8px"></i>Submit Responses';
+    document.getElementById('submitHint').textContent = allDone
+      ? 'All questions answered — ready to submit!'
+      : `${total - done} question${total - done !== 1 ? 's' : ''} remaining`;
+  }
+}
+
+// ═══════════════════════════════════════════
+// SUBMIT
+// ═══════════════════════════════════════════
+async function submitResponses(){
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin" style="margin-right:8px"></i>Submitting…';
+  const payload = todayQuestions.map(q => ({questionId: q.id, response: answers[q.id]}));
+  try{
+    const r = await apiPost({action:'submitResponses', branchId: currentBranch.id, responses: payload});
+    if(r.success){
+      const skipped = r.results.filter(x => x.status === 'skipped').length;
+      const saved = r.results.filter(x => x.status === 'success').length;
+      showSuccess(saved, skipped);
+      alreadySubmittedToday = true;
+    } else {
+      showToast(r.error || 'Submission failed');
+      btn.disabled = false;
+      updateSubmitButton();
+    }
+  }catch(e){
+    showToast('Network error. Please retry.');
+    btn.disabled = false;
+    updateSubmitButton();
+  }
+}
+
+function showSuccess(saved, skipped){
+  stopSync();
+  document.getElementById('appPage').style.display = 'none';
+  document.getElementById('successScreen').style.display = 'flex';
+  document.getElementById('successMsg').textContent =
+    skipped > 0
+      ? `${saved} response${saved!==1?'s':''} saved. ${skipped} skipped (already submitted & override not allowed).`
+      : `All responses submitted for ${currentBranch.name}.`;
+
+  const now = new Date();
+  document.getElementById('successDetails').innerHTML = `
+    <div class="success-detail-row">
+      <span class="success-detail-label">Branch</span>
+      <span class="success-detail-val">${currentBranch.name}</span>
+    </div>
+    <div class="success-detail-row">
+      <span class="success-detail-label">Scale</span>
+      <span class="success-detail-val">${currentBranch.scale}</span>
+    </div>
+    <div class="success-detail-row">
+      <span class="success-detail-label">Responses saved</span>
+      <span class="success-detail-val">${saved}</span>
+    </div>
+    <div class="success-detail-row">
+      <span class="success-detail-label">Time</span>
+      <span class="success-detail-val">${now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</span>
+    </div>`;
+}
+
+function goBackFromSuccess(){
+  document.getElementById('successScreen').style.display = 'none';
+  document.getElementById('appPage').style.display = 'flex';
+  startSync();
+  loadQuestions();
+}
+
+// ═══════════════════════════════════════════
+// SYNC — 30 seconds is optimal for question updates
+// (5s would hammer Apps Script quota with many branches)
+// ═══════════════════════════════════════════
+function startSync(){
+  stopSync();
+  syncTimer = setInterval(async () => {
+    if(!currentBranch) return;
+    try{
+      const r = await apiGet({action:'getTodayQuestions'});
+      const newQ = Array.isArray(r) ? r : [];
+      // Only re-render if question IDs changed (new/deleted questions)
+      const newIds = newQ.map(q => q.id).join(',');
+      const curIds = todayQuestions.map(q => q.id).join(',');
+      if(newIds !== curIds){
+        todayQuestions = newQ;
+        // Preserve existing answers for questions still present
+        const validIds = new Set(newQ.map(q => q.id));
+        Object.keys(answers).forEach(k => { if(!validIds.has(k)) delete answers[k]; });
+        renderQuestions();
+        showToast('Questions updated by Regional Office', 'warn');
+      }
+      setSyncStatus(true);
+      document.getElementById('offlineBanner').classList.remove('show');
+    }catch(e){
+      setSyncStatus(false);
+      document.getElementById('offlineBanner').classList.add('show');
+    }
+  }, 30000); // 30 seconds — safe for Apps Script quota
+}
+
+function stopSync(){
+  if(syncTimer){ clearInterval(syncTimer); syncTimer = null; }
+}
+
+function setSyncStatus(ok){
+  const badge = document.getElementById('syncBadge');
+  const txt = document.getElementById('syncText');
+  badge.classList.toggle('sync-err', !ok);
+  txt.textContent = ok ? 'Live' : 'Offline';
+}
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function updateDateTime(){
+  const now = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  document.getElementById('headerDate').textContent =
+    days[now.getDay()] + ', ' + now.toLocaleDateString('en-IN',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('headerTime').textContent =
+    now.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+}
+
+function qTypeLabel(t){
+  return {short:'Short Answer',paragraph:'Paragraph',yesno:'Yes / No',mcq:'Multiple Choice',
+    checkbox:'Checkboxes',dropdown:'Dropdown',linear:'Linear Scale',rating:'Star Rating',
+    number:'Number',date:'Date',time:'Time'}[t] || t;
+}
+
+function qTypeIcon(t){
+  return {short:'fas fa-font',paragraph:'fas fa-align-left',yesno:'fas fa-toggle-on',
+    mcq:'far fa-dot-circle',checkbox:'far fa-check-square',dropdown:'fas fa-chevron-down',
+    linear:'fas fa-sliders-h',rating:'fas fa-star',number:'fas fa-hashtag',
+    date:'fas fa-calendar',time:'fas fa-clock'}[t] || 'fas fa-question';
+}
+
+function escHtml(s){
+  if(typeof s !== 'string') return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function showLoading(msg){ 
+  document.getElementById('loadingOverlay').classList.add('show');
+  document.getElementById('loadingText').textContent = msg || 'Loading…';
+}
+function hideLoading(){ document.getElementById('loadingOverlay').classList.remove('show'); }
+
+let toastT;
+function showToast(msg, type){
+  clearTimeout(toastT);
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type === 'warn' ? ' warn-toast' : type === 'success' ? ' success-toast' : '');
+  toastT = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ═══════════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════════
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
