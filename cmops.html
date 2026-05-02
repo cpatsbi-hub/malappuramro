@@ -299,33 +299,6 @@ textarea.form-control{resize:vertical;min-height:80px}
 </head>
 <body>
 
-<!-- SETUP OVERLAY -->
-<div class="overlay" id="setupOverlay">
-  <div class="modal setup-modal">
-    <div class="modal-body">
-      <div style="font-size:3rem;text-align:center;margin-bottom:16px">⚙️</div>
-      <div style="font-size:1.3rem;font-weight:800;text-align:center;margin-bottom:8px">Connect to Google Sheets</div>
-      <div style="font-size:.85rem;color:var(--muted);text-align:center;margin-bottom:24px;line-height:1.6">
-        Paste your Google Apps Script Web App URL below to connect the system to your spreadsheet.
-      </div>
-      <div class="form-group">
-        <label class="form-label">Apps Script Web App URL</label>
-        <input type="url" class="form-control" id="apiUrlInput" placeholder="https://script.google.com/macros/s/...">
-      </div>
-      <div class="csv-info">
-        📋 Setup steps:<br>
-        1. Open script.google.com → create project → paste Code.gs<br>
-        2. Project Settings → Script Properties → Add: SHEET_ID = &lt;your Sheet ID&gt;<br>
-        3. Run initSheets() once (grant permissions)<br>
-        4. Deploy → New Deployment → Web App → Execute as: Me → Access: Anyone<br>
-        5. Copy the Web App URL and paste above
-      </div>
-      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveApiUrl()">
-        <i class="fas fa-plug"></i> Connect
-      </button>
-    </div>
-  </div>
-</div>
 
 <!-- SIDEBAR OVERLAY (mobile) -->
 <div class="overlay-bg" id="sidebarOverlay" onclick="closeSidebar()"></div>
@@ -349,9 +322,6 @@ textarea.form-control{resize:vertical;min-height:80px}
   <div class="nav-item" data-page="settings" onclick="navigate(this)"><i class="fas fa-cog"></i>Settings</div>
   <div class="sidebar-bottom">
     <div class="api-badge" id="apiUrlBadge">Not configured</div>
-    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px;justify-content:center" onclick="openSetup()">
-      <i class="fas fa-plug"></i> Change URL
-    </button>
   </div>
 </aside>
 
@@ -672,7 +642,7 @@ textarea.form-control{resize:vertical;min-height:80px}
 // ═══════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════
-let API = localStorage.getItem('ro_api_url') || '';
+let API = 'https://script.google.com/macros/s/AKfycbwCrKthkLjRGDMDDzqFfmAFMR47I-rDP4TPzfCThZCUxVMbtBbUPux10e_RjmH-fvBt/exec';
 let branches = [], questions = [], todayQuestions = [], settings = {};
 let currentResponses = [], reportType = 'daily';
 let syncTimer = null;
@@ -1522,7 +1492,6 @@ window.addEventListener('load', () => {
   document.getElementById('reportDate').value = today;
   document.getElementById('reportMonth').value = new Date().getMonth() + 1;
   document.getElementById('reportYear').value = new Date().getFullYear();
-  if(!API){ openSetup(); return; }
   document.getElementById('apiUrlBadge').textContent = API.length > 40 ? API.slice(0,40)+'…' : API;
   syncNow();
   startSync();
