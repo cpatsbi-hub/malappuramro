@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Regional Office — Branch Reporting System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --bg:#07071a;--sidebar:#0e0e2c;--card:#13132e;--card2:#1a1a3d;
+  --border:#2a2a5a;--primary:#6c63ff;--primary2:#8b5cf6;
+  --accent:#ff6b9d;--success:#22d3a0;--danger:#ff5f6d;--warn:#f59e0b;
+  --text:#e2e8f0;--muted:#8892b0;--s2:#38bdf8;--s3:#a78bfa;--s4:#fb923c;
+  --font:'Outfit',sans-serif;--mono:'JetBrains Mono',monospace;
+  --radius:14px;--shadow:0 4px 24px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden}
+a{color:inherit;text-decoration:none}
+button{font-family:var(--font);cursor:pointer;border:none;outline:none}
+input,select,textarea{font-family:var(--font)}
+
+/* ─── LAYOUT ─── */
+.layout{display:flex;min-height:100vh}
+.sidebar{width:240px;background:var(--sidebar);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;
+  transition:transform .3s ease}
+.sidebar-brand{padding:24px 20px 20px;border-bottom:1px solid var(--border)}
+.brand-title{font-size:1.1rem;font-weight:800;background:linear-gradient(135deg,var(--primary),var(--accent));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.brand-sub{font-size:.7rem;color:var(--muted);margin-top:2px;letter-spacing:.05em;text-transform:uppercase}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:var(--success);display:inline-block;
+  margin-right:6px;animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.sync-bad{background:var(--danger)!important;animation:none}
+.sync-spinning{background:var(--warn)!important}
+.nav-section{padding:16px 12px 8px;font-size:.65rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:12px;padding:11px 16px;border-radius:10px;
+  color:var(--muted);font-size:.88rem;font-weight:500;margin:2px 8px;cursor:pointer;transition:all .2s}
+.nav-item:hover{background:rgba(108,99,255,.12);color:var(--text)}
+.nav-item.active{background:linear-gradient(135deg,rgba(108,99,255,.25),rgba(139,92,246,.15));
+  color:#fff;border:1px solid rgba(108,99,255,.3)}
+.nav-item i{width:18px;text-align:center;font-size:.9rem}
+.sidebar-bottom{margin-top:auto;padding:16px;border-top:1px solid var(--border)}
+.api-badge{font-size:.7rem;color:var(--muted);font-family:var(--mono);
+  background:rgba(255,255,255,.04);padding:6px 10px;border-radius:8px;word-break:break-all;line-height:1.4}
+
+.main{margin-left:240px;flex:1;min-height:100vh;display:flex;flex-direction:column}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:16px 28px;
+  border-bottom:1px solid var(--border);background:rgba(7,7,26,.8);backdrop-filter:blur(12px);
+  position:sticky;top:0;z-index:50}
+.page-title{font-size:1.25rem;font-weight:700}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.sync-info{font-size:.75rem;color:var(--muted);font-family:var(--mono)}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:9px;
+  font-size:.85rem;font-weight:600;transition:all .2s;white-space:nowrap}
+.btn-primary{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff}
+.btn-primary:hover{opacity:.88;transform:translateY(-1px)}
+.btn-accent{background:linear-gradient(135deg,var(--accent),#ff8e53);color:#fff}
+.btn-success{background:linear-gradient(135deg,var(--success),#0ea5e9);color:#fff}
+.btn-danger{background:rgba(255,95,109,.15);color:var(--danger);border:1px solid rgba(255,95,109,.3)}
+.btn-danger:hover{background:var(--danger);color:#fff}
+.btn-ghost{background:rgba(255,255,255,.06);color:var(--text);border:1px solid var(--border)}
+.btn-ghost:hover{background:rgba(255,255,255,.1)}
+.btn-sm{padding:6px 13px;font-size:.78rem}
+.btn-xs{padding:4px 10px;font-size:.73rem;border-radius:7px}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:6px}
+.hamburger span{width:22px;height:2px;background:var(--text);border-radius:2px;transition:.3s}
+.content{padding:28px;flex:1}
+.section{display:none}
+.section.active{display:block}
+
+/* ─── CARDS / STATS ─── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:28px}
+.stat-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;position:relative;overflow:hidden;transition:.2s}
+.stat-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.stat-card.c1::before{background:linear-gradient(90deg,var(--primary),var(--primary2))}
+.stat-card.c2::before{background:linear-gradient(90deg,var(--success),#0ea5e9)}
+.stat-card.c3::before{background:linear-gradient(90deg,var(--warn),#f97316)}
+.stat-card.c4::before{background:linear-gradient(90deg,var(--accent),#f43f5e)}
+.stat-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;margin-bottom:14px}
+.c1 .stat-icon{background:rgba(108,99,255,.15);color:var(--primary)}
+.c2 .stat-icon{background:rgba(34,211,160,.15);color:var(--success)}
+.c3 .stat-icon{background:rgba(245,158,11,.15);color:var(--warn)}
+.c4 .stat-icon{background:rgba(255,107,157,.15);color:var(--accent)}
+.stat-num{font-size:2rem;font-weight:800;line-height:1}
+.stat-label{font-size:.78rem;color:var(--muted);margin-top:6px;font-weight:500}
+
+/* ─── SCALE BADGES ─── */
+.scale-badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;
+  font-size:.72rem;font-weight:700;letter-spacing:.03em}
+.s2-badge{background:rgba(56,189,248,.15);color:var(--s2);border:1px solid rgba(56,189,248,.3)}
+.s3-badge{background:rgba(167,139,250,.15);color:var(--s3);border:1px solid rgba(167,139,250,.3)}
+.s4-badge{background:rgba(251,146,60,.15);color:var(--s4);border:1px solid rgba(251,146,60,.3)}
+
+/* ─── TABLES ─── */
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.table-header{padding:18px 20px;display:flex;align-items:center;justify-content:space-between;
+  border-bottom:1px solid var(--border)}
+.table-title{font-weight:700;font-size:1rem}
+table{width:100%;border-collapse:collapse}
+th{padding:12px 16px;font-size:.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.06em;text-align:left;background:rgba(255,255,255,.02);border-bottom:1px solid var(--border)}
+td{padding:13px 16px;font-size:.85rem;border-bottom:1px solid rgba(255,255,255,.04)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(255,255,255,.02)}
+
+/* ─── SCALE TABS ─── */
+.scale-tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.scale-tab{padding:8px 18px;border-radius:8px;font-size:.83rem;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:transparent;color:var(--muted);transition:.2s}
+.scale-tab.active.s2t{background:rgba(56,189,248,.15);color:var(--s2);border-color:rgba(56,189,248,.4)}
+.scale-tab.active.s3t{background:rgba(167,139,250,.15);color:var(--s3);border-color:rgba(167,139,250,.4)}
+.scale-tab.active.s4t{background:rgba(251,146,60,.15);color:var(--s4);border-color:rgba(251,146,60,.4)}
+.scale-tab.active.allt{background:rgba(108,99,255,.15);color:var(--primary);border-color:rgba(108,99,255,.4)}
+
+/* ─── FORM CONTROLS ─── */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.form-group{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.form-label{font-size:.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.form-control{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:9px;
+  padding:10px 13px;color:var(--text);font-size:.88rem;transition:.2s;outline:none}
+.form-control:focus{border-color:var(--primary);background:rgba(108,99,255,.06)}
+.form-control option{background:#1a1a3d}
+textarea.form-control{resize:vertical;min-height:80px}
+
+/* ─── ADD OPTION BUTTON ─── */
+.options-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.opt-row{display:flex;gap:8px;align-items:center}
+.opt-row input{flex:1}
+.opt-del{background:rgba(255,95,109,.12);color:var(--danger);border:none;padding:6px 10px;
+  border-radius:7px;cursor:pointer;font-size:.8rem}
+.add-opt-btn{background:rgba(108,99,255,.1);color:var(--primary);border:1px dashed rgba(108,99,255,.4);
+  padding:7px 14px;border-radius:8px;font-size:.8rem;cursor:pointer;font-family:var(--font)}
+.add-opt-btn:hover{background:rgba(108,99,255,.2)}
+
+/* ─── QUESTION CARDS ─── */
+.q-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;margin-bottom:12px;display:flex;align-items:flex-start;gap:16px;transition:.2s}
+.q-card:hover{border-color:rgba(108,99,255,.3)}
+.q-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;
+  font-size:.9rem;flex-shrink:0;background:rgba(108,99,255,.12);color:var(--primary)}
+.q-body{flex:1}
+.q-text{font-weight:600;font-size:.92rem;margin-bottom:6px}
+.q-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.q-tag{font-size:.7rem;padding:2px 9px;border-radius:20px;font-weight:600;background:rgba(255,255,255,.06);color:var(--muted)}
+.q-sched{font-size:.72rem;font-family:var(--mono);background:rgba(245,158,11,.1);color:var(--warn);
+  padding:2px 8px;border-radius:6px}
+.q-active-tag{font-size:.7rem;padding:2px 9px;border-radius:20px;font-weight:600;
+  background:rgba(34,211,160,.12);color:var(--success);border:1px solid rgba(34,211,160,.25)}
+.q-inactive-tag{background:rgba(255,95,109,.1);color:var(--danger);border:1px solid rgba(255,95,109,.2)}
+
+/* ─── RESPONSES ─── */
+.resp-controls{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px;margin-bottom:20px;display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.resp-controls .form-group{margin:0;flex:1;min-width:160px}
+.resp-summary{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.rs-item{background:var(--card);border:1px solid var(--border);border-radius:10px;
+  padding:12px 18px;text-align:center;min-width:110px}
+.rs-num{font-size:1.5rem;font-weight:800}
+.rs-label{font-size:.72rem;color:var(--muted);margin-top:2px}
+.rs-submitted .rs-num{color:var(--success)}
+.rs-pending .rs-num{color:var(--danger)}
+.rs-total .rs-num{color:var(--primary)}
+
+.scale-section{margin-bottom:24px}
+.scale-section-title{font-size:.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;
+  margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.scale-section-title::after{content:'';flex:1;height:1px;background:var(--border)}
+.branch-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.branch-card{border-radius:11px;padding:14px;position:relative;overflow:hidden;transition:.2s;cursor:default}
+.branch-card.submitted{background:rgba(34,211,160,.08);border:1px solid rgba(34,211,160,.25)}
+.branch-card.pending{background:rgba(255,95,109,.07);border:1px solid rgba(255,95,109,.2)}
+.bc-name{font-weight:700;font-size:.87rem;margin-bottom:6px}
+.bc-status{font-size:.72rem;font-weight:600;display:flex;align-items:center;gap:5px}
+.submitted .bc-status{color:var(--success)}
+.pending .bc-status{color:var(--danger)}
+.bc-response{font-size:.73rem;color:var(--muted);margin-top:6px;background:rgba(255,255,255,.04);
+  padding:5px 8px;border-radius:6px;max-height:60px;overflow-y:auto;word-break:break-word}
+.bc-time{font-size:.68rem;color:var(--muted);margin-top:4px;font-family:var(--mono)}
+.bc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.submitted .bc-dot{background:var(--success)}
+.pending .bc-dot{background:var(--danger)}
+
+/* ─── REPORTS ─── */
+.report-tabs{display:flex;gap:8px;margin-bottom:20px}
+.report-tab{padding:9px 20px;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:transparent;color:var(--muted);transition:.2s;font-family:var(--font)}
+.report-tab.active{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;border-color:transparent}
+.monthly-grid{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;overflow-x:auto}
+.month-table{min-width:600px}
+.month-table th,.month-table td{text-align:center;font-size:.75rem;padding:7px 5px;white-space:nowrap}
+.day-cell{width:28px;height:28px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  font-size:.7rem;font-weight:700}
+.day-submitted{background:rgba(34,211,160,.2);color:var(--success)}
+.day-pending{background:rgba(255,95,109,.15);color:var(--danger)}
+.day-na{background:rgba(255,255,255,.04);color:var(--muted)}
+
+/* ─── PROGRESS BAR ─── */
+.progress-bar{height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--primary),var(--success));transition:width .4s ease}
+
+/* ─── MODAL ─── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(4px);
+  z-index:200;align-items:center;justify-content:center;padding:20px}
+.overlay.open{display:flex}
+.modal{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);
+  width:100%;max-width:560px;max-height:90vh;overflow-y:auto;animation:slideUp .25s ease}
+.modal-lg{max-width:680px}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{padding:20px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;
+  justify-content:space-between;position:sticky;top:0;background:var(--card2);z-index:5}
+.modal-title{font-size:1rem;font-weight:700}
+.modal-close{width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,.06);
+  border:none;color:var(--text);cursor:pointer;font-size:.9rem;display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:rgba(255,255,255,.12)}
+.modal-body{padding:22px}
+.modal-footer{padding:16px 22px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:10px}
+
+/* ─── TOGGLE SWITCH ─── */
+.toggle-wrap{display:flex;align-items:center;gap:14px}
+.toggle{width:48px;height:26px;background:rgba(255,255,255,.1);border-radius:13px;position:relative;
+  cursor:pointer;border:1px solid var(--border);transition:.3s}
+.toggle.on{background:var(--primary);border-color:var(--primary)}
+.toggle-thumb{width:20px;height:20px;background:#fff;border-radius:50%;position:absolute;top:2px;left:2px;
+  transition:.3s;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.toggle.on .toggle-thumb{left:calc(100% - 22px)}
+.toggle-label{font-size:.9rem;font-weight:500}
+
+/* ─── SETUP MODAL ─── */
+.setup-modal{max-width:480px}
+
+/* ─── TOAST ─── */
+.toast{position:fixed;bottom:24px;right:24px;background:var(--card2);border:1px solid var(--border);
+  border-radius:11px;padding:13px 18px;font-size:.85rem;font-weight:500;
+  box-shadow:var(--shadow);z-index:999;display:none;align-items:center;gap:10px;
+  animation:slideUp .2s ease;max-width:320px}
+.toast.show{display:flex}
+.toast.success{border-color:rgba(34,211,160,.4)}
+.toast.error{border-color:rgba(255,95,109,.4)}
+.toast-icon{font-size:1rem}
+.toast.success .toast-icon{color:var(--success)}
+.toast.error .toast-icon{color:var(--danger)}
+
+/* ─── EMPTY STATE ─── */
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted)}
+.empty-state i{font-size:2.5rem;margin-bottom:16px;opacity:.3;display:block}
+.empty-state p{font-size:.9rem}
+
+/* ─── CSV INFO ─── */
+.csv-info{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.2);border-radius:9px;
+  padding:12px;font-size:.78rem;color:var(--warn);line-height:1.6;margin-bottom:14px;font-family:var(--mono)}
+
+/* ─── SCHEDULE PREVIEW ─── */
+.sched-preview{background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.2);border-radius:8px;
+  padding:10px 14px;font-size:.78rem;color:var(--primary);font-family:var(--mono);margin-top:8px}
+
+/* ─── DAY PICKER ─── */
+.day-picker{display:flex;gap:6px;flex-wrap:wrap}
+.day-btn{padding:6px 12px;border-radius:7px;font-size:.78rem;font-weight:600;cursor:pointer;
+  border:1px solid var(--border);background:transparent;color:var(--muted);transition:.2s;font-family:var(--font)}
+.day-btn.selected{background:rgba(108,99,255,.2);color:var(--primary);border-color:rgba(108,99,255,.4)}
+
+/* ─── DOWNLOAD BAR ─── */
+.download-bar{display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap}
+
+/* ─── PENDING PNG TARGET ─── */
+#pendingPngTarget{position:fixed;opacity:0;pointer-events:none;top:0;left:0;z-index:-1;
+  background:#fff;padding:24px;width:720px;font-family:Outfit,sans-serif;color:#1e293b;font-size:13px}
+
+/* ─── RESPONSIVE ─── */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .hamburger{display:flex}
+  .stats-grid{grid-template-columns:1fr 1fr}
+  .form-row{grid-template-columns:1fr}
+  .branch-grid{grid-template-columns:1fr 1fr}
+  .content{padding:16px}
+  .topbar{padding:12px 16px}
+  .resp-controls{flex-direction:column}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr}
+  .branch-grid{grid-template-columns:1fr}
+  .scale-tabs{flex-direction:column}
+}
+.overlay-bg{display:none;position:fixed;inset:0;z-index:99}
+.overlay-bg.open{display:block}
+</style>
+</head>
+<body>
+
+<!-- SETUP OVERLAY -->
+<div class="overlay" id="setupOverlay">
+  <div class="modal setup-modal">
+    <div class="modal-body">
+      <div style="font-size:3rem;text-align:center;margin-bottom:16px">⚙️</div>
+      <div style="font-size:1.3rem;font-weight:800;text-align:center;margin-bottom:8px">Connect to Google Sheets</div>
+      <div style="font-size:.85rem;color:var(--muted);text-align:center;margin-bottom:24px;line-height:1.6">
+        Paste your Google Apps Script Web App URL below to connect the system to your spreadsheet.
+      </div>
+      <div class="form-group">
+        <label class="form-label">Apps Script Web App URL</label>
+        <input type="url" class="form-control" id="apiUrlInput" placeholder="https://script.google.com/macros/s/...">
+      </div>
+      <div class="csv-info">
+        📋 Setup steps:<br>
+        1. Open script.google.com → create project → paste Code.gs<br>
+        2. Project Settings → Script Properties → Add: SHEET_ID = &lt;your Sheet ID&gt;<br>
+        3. Run initSheets() once (grant permissions)<br>
+        4. Deploy → New Deployment → Web App → Execute as: Me → Access: Anyone<br>
+        5. Copy the Web App URL and paste above
+      </div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center" onclick="saveApiUrl()">
+        <i class="fas fa-plug"></i> Connect
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR OVERLAY (mobile) -->
+<div class="overlay-bg" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+<!-- SIDEBAR -->
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-brand">
+    <div class="brand-title">🏦 RO Dashboard</div>
+    <div class="brand-sub" style="display:flex;align-items:center;margin-top:6px">
+      <span class="sync-dot" id="syncDot"></span>
+      <span id="syncText" style="font-size:.7rem;color:var(--muted)">Connecting…</span>
+    </div>
+  </div>
+  <div class="nav-section">Main Menu</div>
+  <div class="nav-item active" data-page="dashboard" onclick="navigate(this)"><i class="fas fa-chart-pie"></i>Dashboard</div>
+  <div class="nav-item" data-page="branches" onclick="navigate(this)"><i class="fas fa-building"></i>Branches</div>
+  <div class="nav-item" data-page="questions" onclick="navigate(this)"><i class="fas fa-question-circle"></i>Questions</div>
+  <div class="nav-item" data-page="responses" onclick="navigate(this)"><i class="fas fa-inbox"></i>Responses</div>
+  <div class="nav-item" data-page="reports" onclick="navigate(this)"><i class="fas fa-chart-bar"></i>Reports</div>
+  <div class="nav-section">Config</div>
+  <div class="nav-item" data-page="settings" onclick="navigate(this)"><i class="fas fa-cog"></i>Settings</div>
+  <div class="sidebar-bottom">
+    <div class="api-badge" id="apiUrlBadge">Not configured</div>
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px;justify-content:center" onclick="openSetup()">
+      <i class="fas fa-plug"></i> Change URL
+    </button>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:14px">
+      <div class="hamburger" onclick="toggleSidebar()">
+        <span></span><span></span><span></span>
+      </div>
+      <div class="page-title" id="pageTitle">Dashboard</div>
+    </div>
+    <div class="topbar-right">
+      <div class="sync-info" id="lastSyncInfo">—</div>
+      <button class="btn btn-ghost btn-sm" onclick="syncNow()"><i class="fas fa-sync-alt"></i> Sync</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="section active" id="sec-dashboard">
+      <div class="stats-grid">
+        <div class="stat-card c1"><div class="stat-icon"><i class="fas fa-building"></i></div><div class="stat-num" id="ds-total">—</div><div class="stat-label">Total Branches</div></div>
+        <div class="stat-card c2"><div class="stat-icon"><i class="fas fa-check-circle"></i></div><div class="stat-num" id="ds-submitted">—</div><div class="stat-label">Submitted Today</div></div>
+        <div class="stat-card c3"><div class="stat-icon"><i class="fas fa-clock"></i></div><div class="stat-num" id="ds-pending">—</div><div class="stat-label">Pending Today</div></div>
+        <div class="stat-card c4"><div class="stat-icon"><i class="fas fa-question"></i></div><div class="stat-num" id="ds-questions">—</div><div class="stat-label">Active Questions</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
+        <div class="table-wrap" style="padding:20px" id="dash-scale-ii"></div>
+        <div class="table-wrap" style="padding:20px" id="dash-scale-iii"></div>
+        <div class="table-wrap" style="padding:20px;grid-column:span 2" id="dash-scale-iv"></div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header"><div class="table-title">📅 Today's Active Questions</div></div>
+        <div id="todayQList" style="padding:16px"></div>
+      </div>
+    </div>
+
+    <!-- ═══ BRANCHES ═══ -->
+    <div class="section" id="sec-branches">
+      <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="openModal('addBranchModal')"><i class="fas fa-plus"></i> Add Branch</button>
+        <button class="btn btn-accent" onclick="openModal('csvModal')"><i class="fas fa-file-csv"></i> Import CSV</button>
+      </div>
+      <div class="scale-tabs">
+        <div class="scale-tab active allt" data-scale="all" onclick="filterBranches(this,'all')">All</div>
+        <div class="scale-tab s2t" data-scale="Scale II" onclick="filterBranches(this,'Scale II')">Scale II</div>
+        <div class="scale-tab s3t" data-scale="Scale III" onclick="filterBranches(this,'Scale III')">Scale III</div>
+        <div class="scale-tab s4t" data-scale="Scale IV" onclick="filterBranches(this,'Scale IV')">Scale IV</div>
+      </div>
+      <div class="table-wrap">
+        <div class="table-header">
+          <div class="table-title">Branch Master List</div>
+          <div id="branchCount" style="font-size:.8rem;color:var(--muted)"></div>
+        </div>
+        <table><thead><tr><th>#</th><th>Branch Name</th><th>Scale</th><th>ID</th><th>Action</th></tr></thead>
+          <tbody id="branchTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ═══ QUESTIONS ═══ -->
+    <div class="section" id="sec-questions">
+      <div style="margin-bottom:20px">
+        <button class="btn btn-primary" onclick="openModal('addQuestionModal')"><i class="fas fa-plus"></i> Add Question</button>
+      </div>
+      <div id="questionList">
+        <div class="empty-state"><i class="fas fa-question-circle"></i><p>No active questions yet.</p></div>
+      </div>
+    </div>
+
+    <!-- ═══ RESPONSES ═══ -->
+    <div class="section" id="sec-responses">
+      <div class="resp-controls">
+        <div class="form-group">
+          <label class="form-label">Date</label>
+          <input type="date" class="form-control" id="respDate" oninput="loadResponses()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Question</label>
+          <select class="form-control" id="respQuestion" onchange="loadResponses()">
+            <option value="all">All Questions</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Scale</label>
+          <select class="form-control" id="respScale" onchange="renderResponseGrid()">
+            <option value="all">All Scales</option>
+            <option value="Scale II">Scale II</option>
+            <option value="Scale III">Scale III</option>
+            <option value="Scale IV">Scale IV</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadResponses()" style="height:40px;align-self:flex-end">
+          <i class="fas fa-sync"></i>
+        </button>
+      </div>
+      <div class="resp-summary" id="respSummary"></div>
+      <div class="download-bar">
+        <button class="btn btn-success btn-sm" onclick="downloadExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadPNG('respGrid','responses')"><i class="fas fa-image"></i> PNG</button>
+        <button class="btn btn-ghost btn-sm" onclick="downloadPendingPNG()"><i class="fas fa-download"></i> Pending PNG</button>
+      </div>
+      <div id="respGrid"></div>
+    </div>
+
+    <!-- ═══ REPORTS ═══ -->
+    <div class="section" id="sec-reports">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap">
+        <div class="report-tabs">
+          <button class="report-tab active" onclick="switchReport(this,'daily')">📅 Daily</button>
+          <button class="report-tab" onclick="switchReport(this,'monthly')">📆 Monthly</button>
+        </div>
+        <div id="reportDailyControls" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <input type="date" class="form-control" id="reportDate" style="width:160px" oninput="loadReport()">
+        </div>
+        <div id="reportMonthlyControls" style="display:none;gap:10px;align-items:center;flex-wrap:wrap">
+          <select class="form-control" id="reportMonth" style="width:130px" onchange="loadReport()">
+            <option value="1">January</option><option value="2">February</option>
+            <option value="3">March</option><option value="4">April</option>
+            <option value="5">May</option><option value="6">June</option>
+            <option value="7">July</option><option value="8">August</option>
+            <option value="9">September</option><option value="10">October</option>
+            <option value="11">November</option><option value="12">December</option>
+          </select>
+          <input type="number" class="form-control" id="reportYear" style="width:100px" placeholder="Year" oninput="loadReport()">
+        </div>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-success btn-sm" onclick="downloadReportExcel()"><i class="fas fa-file-excel"></i> Excel</button>
+          <button class="btn btn-ghost btn-sm" onclick="downloadPNG('reportContent','report')"><i class="fas fa-image"></i> PNG</button>
+        </div>
+      </div>
+      <div id="reportContent"></div>
+    </div>
+
+    <!-- ═══ SETTINGS ═══ -->
+    <div class="section" id="sec-settings">
+      <div class="table-wrap" style="padding:24px;max-width:500px">
+        <div class="table-title" style="margin-bottom:20px">⚙️ Response Settings</div>
+        <div class="form-group">
+          <label class="form-label">Multiple Responses from Same Branch (same day)</label>
+          <div class="toggle-wrap" style="margin-top:8px">
+            <div class="toggle" id="multiToggle" onclick="toggleMulti()">
+              <div class="toggle-thumb"></div>
+            </div>
+            <span class="toggle-label" id="multiLabel">Not Allowed (one per day)</span>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:8px;line-height:1.6">
+            When <strong>allowed</strong>: a new submission from the same branch overrides the previous one for the same day.<br>
+            When <strong>not allowed</strong>: second submission from same branch is rejected.
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()"><i class="fas fa-save"></i> Save Settings</button>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- ─── ADD BRANCH MODAL ─── -->
+<div class="overlay" id="addBranchModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Add New Branch</div>
+      <button class="modal-close" onclick="closeModal('addBranchModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Branch Name</label>
+        <input type="text" class="form-control" id="newBranchName" placeholder="e.g. Kochi Main Branch">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Scale</label>
+        <select class="form-control" id="newBranchScale">
+          <option value="Scale II">Scale II</option>
+          <option value="Scale III">Scale III</option>
+          <option value="Scale IV">Scale IV</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addBranchModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addBranch()"><i class="fas fa-plus"></i> Add Branch</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── CSV IMPORT MODAL ─── -->
+<div class="overlay" id="csvModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Import Branches from CSV</div>
+      <button class="modal-close" onclick="closeModal('csvModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="csv-info">
+        CSV Format — required columns in first row:<br>
+        <strong>name</strong> | <strong>scale</strong><br><br>
+        Example:<br>
+        name,scale<br>
+        Kochi Main,Scale II<br>
+        Ernakulam Branch,Scale III<br>
+        Aluva Branch,Scale IV
+      </div>
+      <div class="form-group">
+        <label class="form-label">Upload CSV File</label>
+        <input type="file" class="form-control" id="csvFile" accept=".csv" onchange="previewCSV()">
+      </div>
+      <div id="csvPreview" style="margin-top:12px"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('csvModal')">Cancel</button>
+      <button class="btn btn-accent" onclick="importCSV()"><i class="fas fa-upload"></i> Import</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── ADD QUESTION MODAL ─── -->
+<div class="overlay" id="addQuestionModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <div class="modal-title">Add New Question</div>
+      <button class="modal-close" onclick="closeModal('addQuestionModal')"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Question Text</label>
+        <textarea class="form-control" id="qText" placeholder="Enter your question here…" rows="3"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Question Type</label>
+          <select class="form-control" id="qType" onchange="onQTypeChange()">
+            <option value="short">Short Answer</option>
+            <option value="paragraph">Paragraph</option>
+            <option value="yesno">Yes / No</option>
+            <option value="mcq">Multiple Choice (Single)</option>
+            <option value="checkbox">Checkboxes (Multiple)</option>
+            <option value="dropdown">Dropdown</option>
+            <option value="linear">Linear Scale</option>
+            <option value="rating">Rating (Stars)</option>
+            <option value="number">Number</option>
+            <option value="date">Date</option>
+            <option value="time">Time</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Schedule Type</label>
+          <select class="form-control" id="qSchedule" onchange="onScheduleChange()">
+            <option value="alldays">Every Day</option>
+            <option value="specificDate">Specific Date</option>
+            <option value="dayOfWeek">Day(s) of Week</option>
+            <option value="dateRange">Date Range</option>
+          </select>
+        </div>
+      </div>
+      <!-- Options for MCQ / Checkbox / Dropdown -->
+      <div id="qOptionsArea" style="display:none">
+        <div class="form-label" style="margin-bottom:8px">Options</div>
+        <div class="options-list" id="optionsList"></div>
+        <button class="add-opt-btn" onclick="addOption()"><i class="fas fa-plus"></i> Add Option</button>
+      </div>
+      <!-- Linear scale config -->
+      <div id="qLinearArea" style="display:none">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Min Value</label><input type="number" class="form-control" id="linearMin" value="1"></div>
+          <div class="form-group"><label class="form-label">Max Value</label><input type="number" class="form-control" id="linearMax" value="5"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">Min Label</label><input type="text" class="form-control" id="linearMinLabel" placeholder="e.g. Very Poor"></div>
+          <div class="form-group"><label class="form-label">Max Label</label><input type="text" class="form-control" id="linearMaxLabel" placeholder="e.g. Excellent"></div>
+        </div>
+      </div>
+      <!-- Schedule: specific date -->
+      <div id="schedDateArea" style="display:none;margin-top:4px">
+        <div class="form-group"><label class="form-label">Select Date</label><input type="date" class="form-control" id="schedDate" oninput="updateSchedPreview()"></div>
+      </div>
+      <!-- Schedule: day of week -->
+      <div id="schedDowArea" style="display:none;margin-top:4px">
+        <div class="form-label" style="margin-bottom:8px">Select Day(s)</div>
+        <div class="day-picker">
+          <button class="day-btn" data-d="Monday"    onclick="toggleDay(this)">Mon</button>
+          <button class="day-btn" data-d="Tuesday"   onclick="toggleDay(this)">Tue</button>
+          <button class="day-btn" data-d="Wednesday" onclick="toggleDay(this)">Wed</button>
+          <button class="day-btn" data-d="Thursday"  onclick="toggleDay(this)">Thu</button>
+          <button class="day-btn" data-d="Friday"    onclick="toggleDay(this)">Fri</button>
+          <button class="day-btn" data-d="Saturday"  onclick="toggleDay(this)">Sat</button>
+          <button class="day-btn" data-d="Sunday"    onclick="toggleDay(this)">Sun</button>
+        </div>
+      </div>
+      <!-- Schedule: date range -->
+      <div id="schedRangeArea" style="display:none;margin-top:4px">
+        <div class="form-row">
+          <div class="form-group"><label class="form-label">From Date</label><input type="date" class="form-control" id="schedRangeStart" oninput="updateSchedPreview()"></div>
+          <div class="form-group"><label class="form-label">To Date</label><input type="date" class="form-control" id="schedRangeEnd" oninput="updateSchedPreview()"></div>
+        </div>
+      </div>
+      <div class="sched-preview" id="schedPreview">📅 Active: Every Day</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addQuestionModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="addQuestion()"><i class="fas fa-save"></i> Save Question</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span class="toast-icon" id="toastIcon"></span>
+  <span id="toastMsg"></span>
+</div>
+
+<!-- PENDING PNG TARGET (invisible, used for screenshot) -->
+<div id="pendingPngTarget"></div>
+
+<script>
+// ═══════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════
+let API = localStorage.getItem('ro_api_url') || '';
+let branches = [], questions = [], todayQuestions = [], settings = {};
+let currentResponses = [], reportType = 'daily';
+let syncTimer = null;
+let allowMulti = false;
+let curBranchFilter = 'all';
+
+// ═══════════════════════════════════════════
+// SETUP
+// ═══════════════════════════════════════════
+function openSetup(){ document.getElementById('setupOverlay').classList.add('open'); }
+
+function saveApiUrl(){
+  const v = document.getElementById('apiUrlInput').value.trim();
+  if(!v){ toast('Please enter a valid URL', 'error'); return; }
+  API = v;
+  localStorage.setItem('ro_api_url', v);
+  document.getElementById('apiUrlBadge').textContent = v.length > 40 ? v.slice(0,40)+'…' : v;
+  document.getElementById('setupOverlay').classList.remove('open');
+  syncNow();
+}
+
+// ═══════════════════════════════════════════
+// API
+// ═══════════════════════════════════════════
+async function apiGet(params){
+  const r = await fetch(API + '?' + new URLSearchParams(params), {redirect:'follow'});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+async function apiPost(data){
+  const r = await fetch(API, {
+    method: 'POST',
+    redirect: 'follow',
+    headers: {'Content-Type':'text/plain'},
+    body: JSON.stringify(data)
+  });
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+
+// ═══════════════════════════════════════════
+// SYNC — 5 seconds for RO (only one user, quota safe)
+// ═══════════════════════════════════════════
+async function syncNow(){
+  if(!API){ setSyncStatus(false, 'Not configured'); return; }
+  setSyncStatus(null, 'Syncing…');
+  try{
+    const [b, q, tq, s] = await Promise.all([
+      apiGet({action:'getBranches'}),
+      apiGet({action:'getAllQuestions'}),
+      apiGet({action:'getTodayQuestions'}),
+      apiGet({action:'getSettings'})
+    ]);
+    if(b.error) throw new Error(b.error);
+    branches = Array.isArray(b) ? b : [];
+    questions = Array.isArray(q) ? q : [];
+    todayQuestions = Array.isArray(tq) ? tq : [];
+    settings = s || {};
+    allowMulti = String(settings.allowMultipleResponse).toLowerCase() === 'true';
+    document.getElementById('multiToggle').classList.toggle('on', allowMulti);
+    document.getElementById('multiLabel').textContent = allowMulti
+      ? 'Allowed (new response overrides previous)'
+      : 'Not Allowed (one per day)';
+    setSyncStatus(true, 'Synced');
+    document.getElementById('lastSyncInfo').textContent = 'Synced ' + new Date().toLocaleTimeString();
+    renderCurrentPage();
+  }catch(e){
+    setSyncStatus(false, 'Sync error');
+    console.error('Sync error:', e);
+  }
+}
+
+function setSyncStatus(ok, txt){
+  const dot = document.getElementById('syncDot');
+  const span = document.getElementById('syncText');
+  dot.className = 'sync-dot' + (ok === false ? ' sync-bad' : ok === null ? ' sync-spinning' : '');
+  span.textContent = txt;
+}
+
+function startSync(){ syncTimer = setInterval(syncNow, 5000); }
+
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
+const pageTitles = {
+  dashboard:'Dashboard', branches:'Branch Management',
+  questions:'Questions', responses:'Responses',
+  reports:'Reports', settings:'Settings'
+};
+
+function navigate(el){
+  const page = el.dataset.page;
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + page).classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles[page];
+  closeSidebar();
+  renderPage(page);
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+function closeSidebar(){
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarOverlay').classList.remove('open');
+}
+function renderCurrentPage(){
+  const active = document.querySelector('.nav-item.active');
+  if(active) renderPage(active.dataset.page);
+}
+function renderPage(p){
+  if(p === 'dashboard')  renderDashboard();
+  else if(p === 'branches')  renderBranches();
+  else if(p === 'questions') renderQuestions();
+  else if(p === 'responses'){ populateRespQuestions(); renderResponseGrid(); }
+  else if(p === 'reports')   loadReport();
+}
+
+// ═══════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════
+async function renderDashboard(){
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('ds-total').textContent = branches.length;
+  document.getElementById('ds-questions').textContent = todayQuestions.length;
+  try{
+    const r = await apiGet({action:'getResponses', date:today});
+    const reps = Array.isArray(r) ? r : [];
+    const submittedBranches = new Set(reps.map(x => x.branchId));
+    document.getElementById('ds-submitted').textContent = submittedBranches.size;
+    document.getElementById('ds-pending').textContent = branches.length - submittedBranches.size;
+    renderDashScales(submittedBranches);
+  }catch(e){
+    document.getElementById('ds-submitted').textContent = '—';
+    document.getElementById('ds-pending').textContent = '—';
+  }
+  renderTodayQList();
+}
+
+function renderDashScales(submittedBranches){
+  const scales = ['Scale II', 'Scale III', 'Scale IV'];
+  const ids = ['dash-scale-ii', 'dash-scale-iii', 'dash-scale-iv'];
+  const colors = [
+    {c:'var(--s2)', b:'rgba(56,189,248,.1)'},
+    {c:'var(--s3)', b:'rgba(167,139,250,.1)'},
+    {c:'var(--s4)', b:'rgba(251,146,60,.1)'}
+  ];
+  scales.forEach((sc, i) => {
+    const el = document.getElementById(ids[i]);
+    const bs = branches.filter(b => b.scale === sc);
+    const sub = bs.filter(b => submittedBranches.has(b.id)).length;
+    const pct = bs.length ? Math.round(sub / bs.length * 100) : 0;
+    el.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-weight:700;font-size:.9rem;color:${colors[i].c}">${sc}</span>
+        <span style="font-size:.8rem;color:var(--muted)">${sub}/${bs.length}</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:6px">${pct}% submitted today</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:10px">
+        ${bs.map(b => {
+          const s = submittedBranches.has(b.id);
+          return `<span style="font-size:.7rem;padding:2px 8px;border-radius:12px;font-weight:600;
+            background:${s?'rgba(34,211,160,.15)':'rgba(255,95,109,.1)'};
+            color:${s?'var(--success)':'var(--danger)'}">
+            ${s?'✓':'✗'} ${b.name}</span>`;
+        }).join('')}
+      </div>`;
+  });
+}
+
+function renderTodayQList(){
+  const el = document.getElementById('todayQList');
+  if(!todayQuestions.length){
+    el.innerHTML = '<div class="empty-state"><i class="fas fa-question-circle"></i><p>No questions scheduled for today.</p></div>';
+    return;
+  }
+  el.innerHTML = todayQuestions.map(q => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:.85rem;flex:1;font-weight:500">${q.text}</span>
+      <span class="q-tag">${qTypeLabel(q.type)}</span>
+    </div>`).join('');
+}
+
+// ═══════════════════════════════════════════
+// BRANCHES
+// ═══════════════════════════════════════════
+function filterBranches(el, scale){
+  document.querySelectorAll('.scale-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  curBranchFilter = scale;
+  renderBranches();
+}
+
+function renderBranches(){
+  const filtered = curBranchFilter === 'all'
+    ? branches
+    : branches.filter(b => b.scale === curBranchFilter);
+  document.getElementById('branchCount').textContent = filtered.length + ' branches';
+  const scaleClass = {'Scale II':'s2-badge','Scale III':'s3-badge','Scale IV':'s4-badge'};
+  document.getElementById('branchTable').innerHTML = filtered.length
+    ? filtered.map((b, i) => `
+      <tr>
+        <td style="color:var(--muted)">${i+1}</td>
+        <td style="font-weight:600">${escHtml(b.name)}</td>
+        <td><span class="scale-badge ${scaleClass[b.scale]||''}">${b.scale}</span></td>
+        <td style="font-family:var(--mono);font-size:.75rem;color:var(--muted)">${b.id}</td>
+        <td><button class="btn btn-danger btn-xs" onclick="removeBranch('${b.id}','${escHtml(b.name).replace(/'/g,'&apos;')}')"><i class="fas fa-trash"></i></button></td>
+      </tr>`).join('')
+    : `<tr><td colspan="5"><div class="empty-state" style="padding:30px"><i class="fas fa-building"></i><p>No branches in this category.</p></div></td></tr>`;
+}
+
+async function addBranch(){
+  const name = document.getElementById('newBranchName').value.trim();
+  const scale = document.getElementById('newBranchScale').value;
+  if(!name){ toast('Enter branch name', 'error'); return; }
+  try{
+    const r = await apiPost({action:'addBranch', name, scale});
+    if(r.success){ toast('Branch added!', 'success'); closeModal('addBranchModal'); document.getElementById('newBranchName').value=''; await syncNow(); }
+    else toast(r.error || 'Error', 'error');
+  }catch(e){ toast('Network error', 'error'); }
+}
+
+async function removeBranch(id, name){
+  if(!confirm(`Remove branch "${name}"? This cannot be undone.`)) return;
+  try{
+    const r = await apiPost({action:'removeBranch', id});
+    if(r.success){ toast('Branch removed', 'success'); await syncNow(); }
+    else toast(r.error || 'Error', 'error');
+  }catch(e){ toast('Network error', 'error'); }
+}
+
+function previewCSV(){
+  const file = document.getElementById('csvFile').files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.trim().split('\n').slice(0, 6);
+    document.getElementById('csvPreview').innerHTML = `
+      <div style="font-size:.75rem;color:var(--muted);background:rgba(255,255,255,.04);
+        border:1px solid var(--border);border-radius:8px;padding:10px;font-family:var(--mono)">
+        Preview (first 5 rows):<br>${lines.map(l => `<div>${escHtml(l)}</div>`).join('')}
+      </div>`;
+  };
+  reader.readAsText(file);
+}
+
+async function importCSV(){
+  const file = document.getElementById('csvFile').files[0];
+  if(!file){ toast('Select a CSV file', 'error'); return; }
+  const text = await file.text();
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/"/g,''));
+  const nameIdx = headers.indexOf('name');
+  const scaleIdx = headers.indexOf('scale');
+  if(nameIdx < 0 || scaleIdx < 0){
+    toast('CSV must have "name" and "scale" columns', 'error'); return;
+  }
+  const rows = lines.slice(1).map(l => {
+    const cols = l.split(',').map(c => c.trim().replace(/"/g,''));
+    return {name: cols[nameIdx], scale: cols[scaleIdx]};
+  }).filter(r => r.name);
+  if(!rows.length){ toast('No valid rows found', 'error'); return; }
+  try{
+    const res = await apiPost({action:'addBranchesCSV', branches:rows});
+    if(res.success){
+      toast(`Added ${res.results.added} branches (${res.results.skipped} skipped)`, 'success');
+      closeModal('csvModal');
+      document.getElementById('csvFile').value = '';
+      document.getElementById('csvPreview').innerHTML = '';
+      await syncNow();
+    } else toast(res.error || 'Error', 'error');
+  }catch(e){ toast('Network error', 'error'); }
+}
+
+// ═══════════════════════════════════════════
+// QUESTIONS
+// ═══════════════════════════════════════════
+const qTypeIcons = {
+  short:'fas fa-font', paragraph:'fas fa-align-left', yesno:'fas fa-toggle-on',
+  mcq:'fas fa-dot-circle', checkbox:'fas fa-check-square', dropdown:'fas fa-chevron-down',
+  linear:'fas fa-sliders-h', rating:'fas fa-star', number:'fas fa-hashtag',
+  date:'fas fa-calendar', time:'fas fa-clock'
+};
+
+function qTypeLabel(t){
+  return {short:'Short Answer', paragraph:'Paragraph', yesno:'Yes/No', mcq:'Multiple Choice',
+    checkbox:'Checkboxes', dropdown:'Dropdown', linear:'Linear Scale', rating:'Rating',
+    number:'Number', date:'Date', time:'Time'}[t] || t;
+}
+
+function schedLabel(type, val){
+  if(type === 'alldays') return '📅 Every Day';
+  if(type === 'specificDate') return '📅 Date: ' + val;
+  if(type === 'dayOfWeek') return '📅 Every: ' + val;
+  if(type === 'dateRange'){
+    const [s, e] = val.split('|');
+    return `📅 ${s} → ${e}`;
+  }
+  return val || '—';
+}
+
+function isQuestionActiveToday(q){
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const now = new Date();
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dow = days[now.getDay()];
+  const today = now.toISOString().split('T')[0];
+  switch(q.scheduleType){
+    case 'alldays': return true;
+    case 'specificDate': return q.scheduleValue === today;
+    case 'dayOfWeek': return q.scheduleValue.split(',').map(d=>d.trim()).includes(dow);
+    case 'dateRange': {
+      const [s,e] = q.scheduleValue.split('|');
+      return today >= s && today <= e;
+    }
+    default: return false;
+  }
+}
+
+function renderQuestions(){
+  const el = document.getElementById('questionList');
+  if(!questions.length){
+    el.innerHTML = '<div class="empty-state"><i class="fas fa-question-circle"></i><p>No active questions yet. Click "Add Question".</p></div>';
+    return;
+  }
+  el.innerHTML = questions.map(q => {
+    const isToday = isQuestionActiveToday(q);
+    return `<div class="q-card">
+      <div class="q-icon"><i class="${qTypeIcons[q.type] || 'fas fa-question'}"></i></div>
+      <div class="q-body">
+        <div class="q-text">${escHtml(q.text)}</div>
+        <div class="q-meta">
+          <span class="q-tag">${qTypeLabel(q.type)}</span>
+          <span class="q-sched">${schedLabel(q.scheduleType, q.scheduleValue)}</span>
+          ${isToday ? '<span class="q-active-tag">✓ Active Today</span>' : '<span class="q-tag q-inactive-tag">Not today</span>'}
+          ${q.options && Array.isArray(q.options) ? `<span class="q-tag">${q.options.length} options</span>` : ''}
+        </div>
+      </div>
+      <button class="btn btn-danger btn-xs" onclick="deleteQuestion('${q.id}')"><i class="fas fa-trash"></i></button>
+    </div>`;
+  }).join('');
+}
+
+async function addQuestion(){
+  const text = document.getElementById('qText').value.trim();
+  if(!text){ toast('Enter question text', 'error'); return; }
+  const type = document.getElementById('qType').value;
+  const schedType = document.getElementById('qSchedule').value;
+  let schedVal = '';
+  if(schedType === 'specificDate'){
+    schedVal = document.getElementById('schedDate').value;
+    if(!schedVal){ toast('Select a date', 'error'); return; }
+  } else if(schedType === 'dayOfWeek'){
+    const sel = [...document.querySelectorAll('.day-btn.selected')].map(b => b.dataset.d);
+    if(!sel.length){ toast('Select at least one day', 'error'); return; }
+    schedVal = sel.join(',');
+  } else if(schedType === 'dateRange'){
+    const s = document.getElementById('schedRangeStart').value;
+    const e = document.getElementById('schedRangeEnd').value;
+    if(!s || !e){ toast('Select date range', 'error'); return; }
+    if(s > e){ toast('Start date must be before end date', 'error'); return; }
+    schedVal = s + '|' + e;
+  }
+  let options = null;
+  if(['mcq','checkbox','dropdown'].includes(type)){
+    options = [...document.querySelectorAll('#optionsList .opt-row input')]
+      .map(i => i.value.trim()).filter(Boolean);
+    if(options.length < 2){ toast('Add at least 2 options', 'error'); return; }
+  }
+  if(type === 'linear'){
+    options = {
+      min: +document.getElementById('linearMin').value,
+      max: +document.getElementById('linearMax').value,
+      minLabel: document.getElementById('linearMinLabel').value,
+      maxLabel: document.getElementById('linearMaxLabel').value
+    };
+    if(options.min >= options.max){ toast('Max must be greater than Min', 'error'); return; }
+  }
+  try{
+    const r = await apiPost({action:'addQuestion', text, type, scheduleType:schedType, scheduleValue:schedVal, options});
+    if(r.success){ toast('Question saved!', 'success'); closeModal('addQuestionModal'); resetQuestionForm(); await syncNow(); }
+    else toast(r.error || 'Error', 'error');
+  }catch(e){ toast('Network error', 'error'); }
+}
+
+async function deleteQuestion(id){
+  if(!confirm('Delete this question? Branch responses already submitted will be retained.')) return;
+  try{
+    const r = await apiPost({action:'deleteQuestion', id});
+    if(r.success){ toast('Question deleted', 'success'); await syncNow(); }
+    else toast(r.error || 'Error', 'error');
+  }catch(e){ toast('Network error', 'error'); }
+}
+
+function resetQuestionForm(){
+  document.getElementById('qText').value = '';
+  document.getElementById('qType').value = 'short';
+  document.getElementById('qSchedule').value = 'alldays';
+  document.getElementById('optionsList').innerHTML = '';
+  document.querySelectorAll('.day-btn').forEach(b => b.classList.remove('selected'));
+  onQTypeChange();
+  onScheduleChange();
+}
+
+function onQTypeChange(){
+  const t = document.getElementById('qType').value;
+  document.getElementById('qOptionsArea').style.display = ['mcq','checkbox','dropdown'].includes(t) ? 'block' : 'none';
+  document.getElementById('qLinearArea').style.display = t === 'linear' ? 'block' : 'none';
+  if(['mcq','checkbox','dropdown'].includes(t) && !document.querySelectorAll('#optionsList .opt-row').length){
+    addOption(); addOption(); // Start with 2 options
+  }
+}
+
+function onScheduleChange(){
+  const s = document.getElementById('qSchedule').value;
+  document.getElementById('schedDateArea').style.display  = s === 'specificDate' ? 'block' : 'none';
+  document.getElementById('schedDowArea').style.display   = s === 'dayOfWeek' ? 'block' : 'none';
+  document.getElementById('schedRangeArea').style.display = s === 'dateRange' ? 'block' : 'none';
+  updateSchedPreview();
+}
+
+function updateSchedPreview(){
+  const s = document.getElementById('qSchedule').value;
+  let txt = '📅 Active: ';
+  if(s === 'alldays') txt += 'Every Day';
+  else if(s === 'specificDate') txt += 'Specific Date: ' + (document.getElementById('schedDate').value || 'not set');
+  else if(s === 'dayOfWeek'){
+    const sel = [...document.querySelectorAll('.day-btn.selected')].map(b => b.dataset.d);
+    txt += 'Every ' + (sel.join(', ') || '(none selected)');
+  } else if(s === 'dateRange'){
+    txt += (document.getElementById('schedRangeStart').value || '?') + ' → ' + (document.getElementById('schedRangeEnd').value || '?');
+  }
+  document.getElementById('schedPreview').textContent = txt;
+}
+
+function addOption(){
+  const div = document.createElement('div');
+  div.className = 'opt-row';
+  div.innerHTML = `<input type="text" class="form-control" placeholder="Option text">
+    <button class="opt-del" onclick="this.parentElement.remove()"><i class="fas fa-times"></i></button>`;
+  document.getElementById('optionsList').appendChild(div);
+}
+
+function toggleDay(btn){ btn.classList.toggle('selected'); updateSchedPreview(); }
+
+// ═══════════════════════════════════════════
+// RESPONSES
+// ═══════════════════════════════════════════
+function populateRespQuestions(){
+  const sel = document.getElementById('respQuestion');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="all">All Questions</option>' +
+    questions.map(q => `<option value="${q.id}">${escHtml(q.text.slice(0,60))}${q.text.length>60?'…':''}</option>`).join('');
+  sel.value = (cur && [...sel.options].some(o => o.value === cur)) ? cur : 'all';
+  if(!document.getElementById('respDate').value)
+    document.getElementById('respDate').value = new Date().toISOString().split('T')[0];
+}
+
+async function loadResponses(){
+  const date = document.getElementById('respDate').value;
+  const qid = document.getElementById('respQuestion').value;
+  if(!date) return;
+  try{
+    const params = {action:'getResponses', date};
+    if(qid !== 'all') params.questionId = qid;
+    const r = await apiGet(params);
+    currentResponses = Array.isArray(r) ? r : [];
+    renderResponseGrid();
+  }catch(e){ toast('Could not load responses', 'error'); }
+}
+
+function renderResponseGrid(){
+  const scaleFilter = document.getElementById('respScale').value;
+  const date = document.getElementById('respDate').value;
+  const el = document.getElementById('respGrid');
+  if(!date){
+    el.innerHTML = '<div class="empty-state"><i class="fas fa-calendar"></i><p>Select a date to view responses.</p></div>';
+    return;
+  }
+  let brs = scaleFilter === 'all' ? branches : branches.filter(b => b.scale === scaleFilter);
+
+  // Build a map: branchId → latest response data
+  const submittedMap = {};
+  currentResponses.forEach(r => {
+    // If multiple responses per branch (different questions), group them
+    if(!submittedMap[r.branchId]) submittedMap[r.branchId] = {responses:[], timestamp: r.timestamp};
+    submittedMap[r.branchId].responses.push({q:r.questionId, v:r.response});
+    // Keep latest timestamp
+    if(r.timestamp > submittedMap[r.branchId].timestamp) submittedMap[r.branchId].timestamp = r.timestamp;
+  });
+
+  const submitted = brs.filter(b => submittedMap[b.id]);
+  const pending = brs.filter(b => !submittedMap[b.id]);
+
+  const pct = brs.length ? Math.round(submitted.length / brs.length * 100) : 0;
+  document.getElementById('respSummary').innerHTML = `
+    <div class="rs-item rs-total"><div class="rs-num">${brs.length}</div><div class="rs-label">Total</div></div>
+    <div class="rs-item rs-submitted"><div class="rs-num">${submitted.length}</div><div class="rs-label">Submitted</div></div>
+    <div class="rs-item rs-pending"><div class="rs-num">${pending.length}</div><div class="rs-label">Pending</div></div>
+    <div class="rs-item" style="min-width:150px">
+      <div class="rs-num" style="color:var(--primary)">${pct}%</div>
+      <div class="rs-label">Completion</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>`;
+
+  const scales = ['Scale II','Scale III','Scale IV'];
+  const scaleColors = {'Scale II':'var(--s2)','Scale III':'var(--s3)','Scale IV':'var(--s4)'};
+  const filteredScales = scaleFilter === 'all' ? scales : [scaleFilter];
+  let html = '';
+  filteredScales.forEach(sc => {
+    const sb = brs.filter(b => b.scale === sc);
+    if(!sb.length) return;
+    html += `<div class="scale-section">
+      <div class="scale-section-title" style="color:${scaleColors[sc]}">${sc} — ${sb.filter(b=>submittedMap[b.id]).length}/${sb.length} submitted</div>
+      <div class="branch-grid">
+        ${sb.map(b => {
+          const data = submittedMap[b.id];
+          const isSub = !!data;
+          // Format response display
+          let dispResp = '';
+          if(data){
+            const respParts = data.responses.map(r => {
+              const q = questions.find(q => q.id === r.q);
+              const qLabel = q ? q.text.slice(0,30) + (q.text.length>30?'…':'') : r.q;
+              const val = Array.isArray(r.v) ? r.v.join(', ') : (typeof r.v === 'object' ? JSON.stringify(r.v) : String(r.v));
+              return `<strong>${escHtml(qLabel)}:</strong> ${escHtml(val)}`;
+            });
+            dispResp = respParts.join('<br>');
+          }
+          const timeStr = data && data.timestamp ? new Date(data.timestamp).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'}) : '';
+          return `<div class="branch-card ${isSub?'submitted':'pending'}">
+            <div class="bc-name">${escHtml(b.name)}</div>
+            <div class="bc-status"><div class="bc-dot"></div>${isSub?'✓ Submitted':'⏳ Pending'}</div>
+            ${isSub && dispResp ? `<div class="bc-response">${dispResp}</div>` : ''}
+            ${isSub && timeStr ? `<div class="bc-time">🕐 ${timeStr}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html || '<div class="empty-state"><i class="fas fa-inbox"></i><p>No branches match the filter.</p></div>';
+}
+
+// ═══════════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════════
+function switchReport(btn, type){
+  document.querySelectorAll('.report-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  reportType = type;
+  document.getElementById('reportDailyControls').style.display  = type === 'daily' ? 'flex' : 'none';
+  document.getElementById('reportMonthlyControls').style.display = type === 'monthly' ? 'flex' : 'none';
+  loadReport();
+}
+
+async function loadReport(){
+  const el = document.getElementById('reportContent');
+  el.innerHTML = '<div class="empty-state"><i class="fas fa-spinner fa-spin"></i><p>Loading…</p></div>';
+  if(reportType === 'daily'){
+    const date = document.getElementById('reportDate').value;
+    if(!date){
+      el.innerHTML = '<div class="empty-state"><i class="fas fa-calendar"></i><p>Select a date.</p></div>';
+      return;
+    }
+    try{
+      const r = await apiGet({action:'getResponses', date});
+      renderDailyReport(Array.isArray(r) ? r : [], date, el);
+    }catch(e){ el.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load report.</p></div>'; }
+  } else {
+    const month = document.getElementById('reportMonth').value;
+    const year = document.getElementById('reportYear').value;
+    if(!year){
+      el.innerHTML = '<div class="empty-state"><p>Enter a year.</p></div>';
+      return;
+    }
+    try{
+      const r = await apiGet({action:'getMonthlyReport', month, year});
+      renderMonthlyReport(Array.isArray(r) ? r : [], month, year, el);
+    }catch(e){ el.innerHTML = '<div class="empty-state"><i class="fas fa-exclamation-circle"></i><p>Failed to load report.</p></div>'; }
+  }
+}
+
+function renderDailyReport(reps, date, el){
+  const submittedBranches = new Set(reps.map(r => r.branchId));
+  const scaleColors = {
+    'Scale II': ['#0ea5e9','#0284c7'],
+    'Scale III': ['#a78bfa','#7c3aed'],
+    'Scale IV': ['#fb923c','#ea580c']
+  };
+  let html = `<div class="table-wrap" style="margin-bottom:16px;padding:18px">
+    <div style="font-weight:700;margin-bottom:16px;font-size:1.05rem">📅 Daily Report — ${date}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px">`;
+  ['Scale II','Scale III','Scale IV'].forEach(sc => {
+    const bs = branches.filter(b => b.scale === sc);
+    const sub = bs.filter(b => submittedBranches.has(b.id)).length;
+    const pct = bs.length ? Math.round(sub/bs.length*100) : 0;
+    const [c1,c2] = scaleColors[sc];
+    html += `<div style="background:linear-gradient(135deg,${c1}22,${c2}11);border:1px solid ${c1}44;border-radius:10px;padding:16px">
+      <div style="font-weight:700;color:${c1};margin-bottom:4px">${sc}</div>
+      <div style="font-size:1.6rem;font-weight:800;margin:6px 0">${sub}<span style="font-size:1rem;color:var(--muted)">/${bs.length}</span></div>
+      <div class="progress-bar" style="background:rgba(255,255,255,.1)">
+        <div style="height:100%;border-radius:3px;width:${pct}%;background:linear-gradient(90deg,${c1},${c2})"></div>
+      </div>
+      <div style="font-size:.73rem;color:var(--muted);margin-top:5px">${pct}% submitted</div>
+    </div>`;
+  });
+  html += '</div>';
+  ['Scale II','Scale III','Scale IV'].forEach(sc => {
+    const bs = branches.filter(b => b.scale === sc);
+    if(!bs.length) return;
+    html += `<div style="margin-bottom:16px">
+      <div style="font-weight:700;font-size:.8rem;color:${scaleColors[sc][0]};margin-bottom:8px;text-transform:uppercase;letter-spacing:.05em">${sc}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">
+        ${bs.map(b => {
+          const isSub = submittedBranches.has(b.id);
+          return `<span style="padding:5px 12px;border-radius:20px;font-size:.78rem;font-weight:600;
+            background:${isSub?'rgba(34,211,160,.15)':'rgba(255,95,109,.12)'};
+            color:${isSub?'var(--success)':'var(--danger)'};
+            border:1px solid ${isSub?'rgba(34,211,160,.3)':'rgba(255,95,109,.25)'}">
+            ${isSub?'✓':'✗'} ${escHtml(b.name)}</span>`;
+        }).join('')}
+      </div>
+    </div>`;
+  });
+  el.innerHTML = html + '</div>';
+}
+
+function renderMonthlyReport(reps, month, year, el){
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const days = Array.from({length: daysInMonth}, (_, i) => i+1);
+  // Build set: "branchId:date"
+  const submittedSet = new Set(reps.map(r => r.branchId + ':' + r.date));
+  let html = '<div class="monthly-grid"><div style="overflow-x:auto"><table class="month-table"><thead><tr>';
+  html += '<th style="text-align:left;min-width:150px;position:sticky;left:0;background:var(--card)">Branch</th>';
+  html += '<th>Scale</th>';
+  days.forEach(d => html += `<th>${d}</th>`);
+  html += '<th>✓</th></tr></thead><tbody>';
+  branches.forEach(b => {
+    const scBadge = {'Scale II':'s2-badge','Scale III':'s3-badge','Scale IV':'s4-badge'}[b.scale]||'';
+    html += `<tr>
+      <td style="text-align:left;font-weight:600;position:sticky;left:0;background:var(--card)">${escHtml(b.name)}</td>
+      <td><span class="scale-badge ${scBadge}">${b.scale}</span></td>`;
+    let count = 0;
+    days.forEach(d => {
+      const dd = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const done = submittedSet.has(b.id + ':' + dd);
+      if(done) count++;
+      html += `<td><span class="day-cell ${done?'day-submitted':'day-pending'}">${done?'✓':'·'}</span></td>`;
+    });
+    html += `<td style="font-weight:700;color:${count>0?'var(--success)':'var(--danger)'}">${count}</td></tr>`;
+  });
+  html += '</tbody></table></div></div>';
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════
+// DOWNLOADS
+// ═══════════════════════════════════════════
+function downloadExcel(){
+  const submittedMap = {};
+  currentResponses.forEach(r => {
+    if(!submittedMap[r.branchId]) submittedMap[r.branchId] = {responses:[], ts:r.timestamp};
+    submittedMap[r.branchId].responses.push({q:r.questionId, v:r.response});
+  });
+  const data = branches.map(b => {
+    const d = submittedMap[b.id];
+    return {
+      Branch: b.name,
+      Scale: b.scale,
+      Status: d ? 'Submitted' : 'Pending',
+      Response: d ? d.responses.map(r => {
+        const q = questions.find(q => q.id === r.q);
+        const label = q ? q.text.slice(0,40) : r.q;
+        const val = Array.isArray(r.v) ? r.v.join('; ') : String(r.v);
+        return label + ': ' + val;
+      }).join(' | ') : '',
+      Timestamp: d ? d.ts : ''
+    };
+  });
+  downloadExcelData(data, 'Responses_' + document.getElementById('respDate').value + '.xlsx');
+}
+
+function downloadExcelData(data, filename){
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Report');
+  XLSX.writeFile(wb, filename);
+}
+
+async function downloadReportExcel(){
+  if(reportType === 'daily'){
+    const date = document.getElementById('reportDate').value;
+    if(!date) return;
+    try{
+      const r = await apiGet({action:'getResponses', date});
+      const reps = Array.isArray(r) ? r : [];
+      const submittedBranches = new Set(reps.map(r => r.branchId));
+      const data = branches.map(b => ({
+        Branch: b.name,
+        Scale: b.scale,
+        Status: submittedBranches.has(b.id) ? 'Submitted' : 'Pending',
+        Date: date
+      }));
+      downloadExcelData(data, 'Daily_Report_' + date + '.xlsx');
+    }catch(e){ toast('Failed to download', 'error'); }
+  } else {
+    const month = document.getElementById('reportMonth').value;
+    const year = document.getElementById('reportYear').value;
+    try{
+      const r = await apiGet({action:'getMonthlyReport', month, year});
+      const reps = Array.isArray(r) ? r : [];
+      const data = reps.map(r => ({
+        BranchID: r.branchId,
+        Question: r.questionId,
+        Response: typeof r.response === 'object' ? JSON.stringify(r.response) : r.response,
+        Date: r.date,
+        Timestamp: r.timestamp
+      }));
+      downloadExcelData(data, 'Monthly_Report_' + year + '_' + String(month).padStart(2,'0') + '.xlsx');
+    }catch(e){ toast('Failed to download', 'error'); }
+  }
+}
+
+async function downloadPNG(id, name){
+  const el = document.getElementById(id);
+  if(!el || !el.innerHTML.trim()){ toast('Nothing to capture', 'error'); return; }
+  try{
+    const canvas = await html2canvas(el, {backgroundColor:'#07071a', scale:2, useCORS:true});
+    const a = document.createElement('a');
+    a.download = name + '_' + new Date().toISOString().split('T')[0] + '.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    toast('PNG downloaded!', 'success');
+  }catch(e){ toast('PNG error: ' + e.message, 'error'); }
+}
+
+async function downloadPendingPNG(){
+  const submittedBranches = new Set(currentResponses.map(r => r.branchId));
+  const scales = ['Scale II','Scale III','Scale IV'];
+  const scaleColors = {'Scale II':'#0ea5e9','Scale III':'#a78bfa','Scale IV':'#fb923c'};
+  const date = document.getElementById('respDate').value;
+  const target = document.getElementById('pendingPngTarget');
+
+  let anyPending = false;
+  let html = `<div style="font-family:'Outfit',sans-serif;color:#1e293b;padding:24px;background:#fff;min-width:640px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:2px solid #e2e8f0">
+      <div style="font-size:24px">⏳</div>
+      <div>
+        <div style="font-size:18px;font-weight:800">Pending Branches Report</div>
+        <div style="font-size:12px;color:#64748b;margin-top:2px">Date: ${date} &nbsp;|&nbsp; Generated: ${new Date().toLocaleString('en-IN')}</div>
+      </div>
+    </div>`;
+
+  scales.forEach(sc => {
+    const pend = branches.filter(b => b.scale === sc && !submittedBranches.has(b.id));
+    if(!pend.length) return;
+    anyPending = true;
+    html += `<div style="margin-bottom:20px">
+      <div style="font-weight:700;color:${scaleColors[sc]};font-size:13px;margin-bottom:10px;
+        text-transform:uppercase;letter-spacing:.05em">${sc} (${pend.length} pending)</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">
+        ${pend.map(b => `<span style="background:#fef2f2;color:#dc2626;border:1px solid #fecaca;
+          padding:5px 12px;border-radius:20px;font-size:11px;font-weight:600">✗ ${b.name}</span>`).join('')}
+      </div>
+    </div>`;
+  });
+
+  if(!anyPending){
+    html += '<div style="text-align:center;padding:30px;color:#22c55e;font-size:16px;font-weight:700">🎉 All branches have submitted!</div>';
+  }
+  html += '</div>';
+  target.innerHTML = html;
+
+  try{
+    const canvas = await html2canvas(target, {backgroundColor:'#fff', scale:2, useCORS:true});
+    const a = document.createElement('a');
+    a.download = 'Pending_Branches_' + date + '.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+    toast('Pending PNG downloaded!', 'success');
+  }catch(e){ toast('PNG error: ' + e.message, 'error'); }
+  target.innerHTML = '';
+}
+
+// ═══════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════
+function toggleMulti(){
+  allowMulti = !allowMulti;
+  document.getElementById('multiToggle').classList.toggle('on', allowMulti);
+  document.getElementById('multiLabel').textContent = allowMulti
+    ? 'Allowed (new response overrides previous)'
+    : 'Not Allowed (one per day)';
+}
+
+async function saveSettings(){
+  try{
+    const r = await apiPost({action:'saveSettings', settings:{allowMultipleResponse: String(allowMulti)}});
+    if(r.success) toast('Settings saved!', 'success');
+    else toast(r.error || 'Error', 'error');
+  }catch(e){ toast('Network error', 'error'); }
+}
+
+// ═══════════════════════════════════════════
+// MODALS / TOAST
+// ═══════════════════════════════════════════
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', function(e){
+    if(e.target === this && this.id !== 'setupOverlay') this.classList.remove('open');
+  });
+});
+
+let toastTimer;
+function toast(msg, type = 'success'){
+  clearTimeout(toastTimer);
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  document.getElementById('toastIcon').innerHTML = type === 'success'
+    ? '<i class="fas fa-check-circle"></i>'
+    : '<i class="fas fa-exclamation-circle"></i>';
+  t.className = 'toast show ' + type;
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ═══════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════
+function escHtml(s){
+  if(typeof s !== 'string') return String(s||'');
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+window.addEventListener('load', () => {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('respDate').value = today;
+  document.getElementById('reportDate').value = today;
+  document.getElementById('reportMonth').value = new Date().getMonth() + 1;
+  document.getElementById('reportYear').value = new Date().getFullYear();
+  if(!API){ openSetup(); return; }
+  document.getElementById('apiUrlBadge').textContent = API.length > 40 ? API.slice(0,40)+'…' : API;
+  syncNow();
+  startSync();
+});
+</script>
+</body>
+</html>
