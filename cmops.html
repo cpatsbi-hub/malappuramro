@@ -1045,7 +1045,7 @@ async function addQuestion(){
   if(['mcq','checkbox','dropdown'].includes(type)){
     options = [...document.querySelectorAll('#optionsList .opt-row input')]
       .map(i => i.value.trim()).filter(Boolean);
-    if(options.length < 2){ toast('Add at least 2 options', 'error'); return; }
+    if(options.length < 1){ toast('Add at least 1 option', 'error'); return; }
   }
   if(type === 'linear'){
     options = {
