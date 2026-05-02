@@ -81,7 +81,7 @@ input,select,textarea{font-family:var(--font)}
 .c2 .stat-icon{background:rgba(34,211,160,.15);color:var(--success)}
 .c3 .stat-icon{background:rgba(245,158,11,.15);color:var(--warn)}
 .c4 .stat-icon{background:rgba(255,107,157,.15);color:var(--accent)}
-.stat-num{font-size:2rem;font-weight:800;line-height:1}
+.stat-num{font-size:2rem;font-weight:800;line-height:1;transition:color .3s}
 .stat-label{font-size:.78rem;color:var(--muted);margin-top:6px;font-weight:500}
 
 /* TABLES */
@@ -269,7 +269,7 @@ textarea.form-control{resize:vertical;min-height:80px}
     </div>
     <div class="topbar-right">
       <div class="sync-info" id="lastSyncInfo">—</div>
-      <button class="btn btn-ghost btn-sm" onclick="syncNow()"><i class="fas fa-sync-alt"></i> Sync</button>
+      <button class="btn btn-ghost btn-sm" onclick="manualSync()"><i class="fas fa-sync-alt"></i> Sync</button>
     </div>
   </div>
 
@@ -538,8 +538,9 @@ let API = 'https://script.google.com/macros/s/AKfycbwCrKthkLjRGDMDDzqFfmAFMR47I-
 let branches = [], questions = [], todayQuestions = [], settings = {};
 let currentResponses = [], reportType = 'daily';
 let syncTimer = null, allowMulti = false;
-// Cache strings for change detection
-let _branchesStr = '', _questionsStr = '', _todayQStr = '';
+
+// ── Fingerprint cache — prevents unnecessary re-renders ──────────────
+let _cache = { branches:'', questions:'', todayQ:'', dashResp:'' };
 
 async function apiGet(params){
   const r = await fetch(API + '?' + new URLSearchParams(params), {redirect:'follow'});
@@ -556,45 +557,88 @@ async function apiPost(data){
   return r.json();
 }
 
-// ─── SILENT SYNC — only re-renders if data actually changed ──────────
-async function syncNow(){
+// ── SILENT SYNC — patches only what changed, zero flicker ────────────
+async function syncNow(forceRender){
   if(!API){ setSyncStatus(false,'Not configured'); return; }
   try{
-    const [b, q, tq, s] = await Promise.all([
+    const today = new Date().toISOString().split('T')[0];
+    const [b, q, tq, s, rr] = await Promise.all([
       apiGet({action:'getBranches'}),
       apiGet({action:'getAllQuestions'}),
       apiGet({action:'getTodayQuestions'}),
-      apiGet({action:'getSettings'})
+      apiGet({action:'getSettings'}),
+      apiGet({action:'getResponses', date:today})
     ]);
     if(b.error) throw new Error(b.error);
 
-    const newB = Array.isArray(b) ? b : [];
-    const newQ = Array.isArray(q) ? q : [];
+    const newB  = Array.isArray(b)  ? b  : [];
+    const newQ  = Array.isArray(q)  ? q  : [];
     const newTQ = Array.isArray(tq) ? tq : [];
+    const newRR = Array.isArray(rr) ? rr : [];
 
-    const newBStr  = JSON.stringify(newB);
-    const newQStr  = JSON.stringify(newQ);
-    const newTQStr = JSON.stringify(newTQ);
-    const dataChanged = newBStr !== _branchesStr || newQStr !== _questionsStr || newTQStr !== _todayQStr;
+    const fp_b  = JSON.stringify(newB);
+    const fp_q  = JSON.stringify(newQ);
+    const fp_tq = JSON.stringify(newTQ);
+    const fp_rr = JSON.stringify(newRR);
 
-    branches = newB; questions = newQ; todayQuestions = newTQ;
-    _branchesStr = newBStr; _questionsStr = newQStr; _todayQStr = newTQStr;
-    settings = s || {};
+    const branchChanged  = fp_b  !== _cache.branches;
+    const questionChanged= fp_q  !== _cache.questions;
+    const todayQChanged  = fp_tq !== _cache.todayQ;
+    const respChanged    = fp_rr !== _cache.dashResp;
+
+    branches      = newB;
+    questions     = newQ;
+    todayQuestions= newTQ;
+    settings      = s || {};
     allowMulti = String(settings.allowMultipleResponse).toLowerCase() === 'true';
+
+    _cache.branches = fp_b;
+    _cache.questions= fp_q;
+    _cache.todayQ   = fp_tq;
+    _cache.dashResp = fp_rr;
+
+    setSyncStatus(true,'Live');
+    document.getElementById('lastSyncInfo').textContent = 'Synced ' + new Date().toLocaleTimeString();
+
+    // Settings toggle — never blinks, just sets state
     document.getElementById('multiToggle').classList.toggle('on', allowMulti);
     document.getElementById('multiLabel').textContent = allowMulti
       ? 'Allowed (new response overrides previous)'
       : 'Not Allowed (one per day)';
 
-    setSyncStatus(true,'Live');
-    document.getElementById('lastSyncInfo').textContent = 'Synced ' + new Date().toLocaleTimeString();
+    const activePage = document.querySelector('.nav-item.active')?.dataset?.page;
 
-    // Only re-render current page if data changed — prevents blinking
-    if(dataChanged) renderCurrentPage();
+    // ── DASHBOARD: targeted patch, no full re-render ─────────────────
+    if(activePage === 'dashboard'){
+      if(branchChanged || respChanged || forceRender){
+        patchDashboard(newB, newRR, newTQ);
+      } else if(todayQChanged){
+        patchTodayQList(newTQ);
+      }
+      // Stat counts always update silently (text swap, no flicker)
+      const submittedBranches = new Set(newRR.map(x=>x.branchId));
+      setText('ds-total', newB.length);
+      setText('ds-submitted', submittedBranches.size);
+      setText('ds-pending', newB.length - submittedBranches.size);
+      setText('ds-questions', newTQ.length);
+    }
+
+    // ── OTHER PAGES: only re-render if data they depend on changed ───
+    else if(activePage === 'branches'  && (branchChanged  || forceRender)) renderBranches();
+    else if(activePage === 'questions' && (questionChanged || forceRender)) renderQuestions();
+    // Responses & Reports are user-driven; don't auto-refresh them silently
+    // so the user's scroll position is not disturbed.
+
   }catch(e){
     setSyncStatus(false,'Sync error');
     console.error('Sync error:', e);
   }
+}
+
+// Set text only if value actually changed (avoids repaint)
+function setText(id, val){
+  const el = document.getElementById(id);
+  if(el && el.textContent !== String(val)) el.textContent = val;
 }
 
 function setSyncStatus(ok, txt){
@@ -603,9 +647,10 @@ function setSyncStatus(ok, txt){
   document.getElementById('syncText').textContent = txt;
 }
 
-function startSync(){ syncTimer = setInterval(syncNow, 5000); }
+function manualSync(){ syncNow(true); }
+function startSync(){ syncTimer = setInterval(() => syncNow(false), 10000); }
 
-// ─── NAVIGATION ──────────────────────────────────────────────────────
+// ── NAVIGATION ───────────────────────────────────────────────────────
 const pageTitles = {dashboard:'Dashboard',branches:'Branch Management',questions:'Questions',responses:'Responses',reports:'Reports',settings:'Settings'};
 
 function navigate(el){
@@ -620,10 +665,7 @@ function navigate(el){
 }
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('sidebarOverlay').classList.toggle('open'); }
 function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebarOverlay').classList.remove('open'); }
-function renderCurrentPage(){
-  const active = document.querySelector('.nav-item.active');
-  if(active) renderPage(active.dataset.page);
-}
+
 function renderPage(p){
   if(p==='dashboard')  renderDashboard();
   else if(p==='branches')  renderBranches();
@@ -632,7 +674,7 @@ function renderPage(p){
   else if(p==='reports')   loadReport();
 }
 
-// ─── DASHBOARD ───────────────────────────────────────────────────────
+// ── DASHBOARD — full render on first load / navigation ───────────────
 async function renderDashboard(){
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('ds-total').textContent = branches.length;
@@ -643,51 +685,69 @@ async function renderDashboard(){
     const submittedBranches = new Set(reps.map(x=>x.branchId));
     document.getElementById('ds-submitted').textContent = submittedBranches.size;
     document.getElementById('ds-pending').textContent = branches.length - submittedBranches.size;
-    renderDashBranches(submittedBranches);
+    patchDashboard(branches, reps, todayQuestions);
   }catch(e){
     document.getElementById('ds-submitted').textContent = '—';
     document.getElementById('ds-pending').textContent = '—';
   }
-  renderTodayQList();
 }
 
-function renderDashBranches(submittedBranches){
+// ── DASHBOARD PATCH — surgically updates branch pills & progress ─────
+// Never touches stat numbers (updated by setText above).
+function patchDashboard(branchesList, reps, tqList){
+  const submittedBranches = new Set(reps.map(r=>r.branchId));
+  const sub = branchesList.filter(b=>submittedBranches.has(b.id)).length;
+  const pct = branchesList.length ? Math.round(sub/branchesList.length*100) : 0;
+  const sorted = [...branchesList].sort((a,b)=>a.name.localeCompare(b.name));
+
   const el = document.getElementById('dash-branches');
-  if(!branches.length){ el.innerHTML = '<div class="empty-state"><i class="fas fa-building"></i><p>No branches added yet.</p></div>'; return; }
-  const sub = branches.filter(b=>submittedBranches.has(b.id)).length;
-  const pct = branches.length ? Math.round(sub/branches.length*100) : 0;
-  el.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <span style="font-weight:700;font-size:.9rem;color:var(--primary)">All Branches</span>
-      <span style="font-size:.8rem;color:var(--muted)">${sub}/${branches.length} submitted</span>
-    </div>
-    <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-    <div style="font-size:.75rem;color:var(--muted);margin-top:6px;margin-bottom:14px">${pct}% submitted today</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">
-      ${branches.map(b=>{
-        const s = submittedBranches.has(b.id);
-        return `<span style="font-size:.72rem;padding:3px 10px;border-radius:20px;font-weight:600;
-          background:${s?'rgba(34,211,160,.15)':'rgba(255,95,109,.1)'};
-          color:${s?'var(--success)':'var(--danger)'}">
-          ${s?'✓':'✗'} ${b.name}</span>`;
-      }).join('')}
-    </div>`;
+  if(!branchesList.length){
+    el.innerHTML = '<div class="empty-state"><i class="fas fa-building"></i><p>No branches added yet.</p></div>';
+  } else {
+    const pillsHtml = sorted.map(b=>{
+      const s = submittedBranches.has(b.id);
+      return `<span style="font-size:.72rem;padding:3px 10px;border-radius:20px;font-weight:600;
+        background:${s?'rgba(34,211,160,.15)':'rgba(255,95,109,.1)'};
+        color:${s?'var(--success)':'var(--danger)'}">
+        ${s?'✓':'✗'} ${escHtml(b.name)}</span>`;
+    }).join('');
+
+    const newHtml = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-weight:700;font-size:.9rem;color:var(--primary)">All Branches</span>
+        <span style="font-size:.8rem;color:var(--muted)">${sub}/${branchesList.length} submitted</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div style="font-size:.75rem;color:var(--muted);margin-top:6px;margin-bottom:14px">${pct}% submitted today</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${pillsHtml}</div>`;
+
+    // Only write to DOM if content actually changed
+    if(el.dataset.fp !== pct + sub) {
+      el.innerHTML = newHtml;
+      el.dataset.fp = pct + sub;
+    }
+  }
+
+  patchTodayQList(tqList);
 }
 
-function renderTodayQList(){
+function patchTodayQList(tqList){
   const el = document.getElementById('todayQList');
-  if(!todayQuestions.length){
+  const fp = tqList.map(q=>q.id).join(',');
+  if(el.dataset.fp === fp) return; // no change
+  el.dataset.fp = fp;
+  if(!tqList.length){
     el.innerHTML = '<div class="empty-state"><i class="fas fa-question-circle"></i><p>No questions scheduled for today.</p></div>';
     return;
   }
-  el.innerHTML = todayQuestions.map(q=>`
+  el.innerHTML = tqList.map(q=>`
     <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
-      <span style="font-size:.85rem;flex:1;font-weight:500">${q.text}</span>
+      <span style="font-size:.85rem;flex:1;font-weight:500">${escHtml(q.text)}</span>
       <span class="q-tag">${qTypeLabel(q.type)}</span>
     </div>`).join('');
 }
 
-// ─── BRANCHES ────────────────────────────────────────────────────────
+// ── BRANCHES ─────────────────────────────────────────────────────────
 function renderBranches(){
   const sorted = [...branches].sort((a,b)=>a.name.localeCompare(b.name));
   document.getElementById('branchCount').textContent = sorted.length + ' branches';
@@ -706,8 +766,8 @@ async function addBranch(){
   const name = document.getElementById('newBranchName').value.trim();
   if(!name){ toast('Enter branch name','error'); return; }
   try{
-    const r = await apiPost({action:'addBranch', name, scale:''});
-    if(r.success){ toast('Branch added!','success'); closeModal('addBranchModal'); document.getElementById('newBranchName').value=''; await syncNow(); }
+    const r = await apiPost({action:'addBranch', name});
+    if(r.success){ toast('Branch added!','success'); closeModal('addBranchModal'); document.getElementById('newBranchName').value=''; await syncNow(true); }
     else toast(r.error||'Error','error');
   }catch(e){ toast('Network error','error'); }
 }
@@ -716,7 +776,7 @@ async function removeBranch(id, name){
   if(!confirm(`Remove branch "${name}"? This cannot be undone.`)) return;
   try{
     const r = await apiPost({action:'removeBranch', id});
-    if(r.success){ toast('Branch removed','success'); await syncNow(); }
+    if(r.success){ toast('Branch removed','success'); await syncNow(true); }
     else toast(r.error||'Error','error');
   }catch(e){ toast('Network error','error'); }
 }
@@ -745,7 +805,7 @@ async function importCSV(){
   if(nameIdx < 0){ toast('CSV must have a "name" column','error'); return; }
   const rows = lines.slice(1).map(l=>{
     const cols = l.split(',').map(c=>c.trim().replace(/"/g,''));
-    return {name:cols[nameIdx], scale:''};
+    return {name:cols[nameIdx]};
   }).filter(r=>r.name);
   if(!rows.length){ toast('No valid rows found','error'); return; }
   try{
@@ -755,12 +815,12 @@ async function importCSV(){
       closeModal('csvModal');
       document.getElementById('csvFile').value='';
       document.getElementById('csvPreview').innerHTML='';
-      await syncNow();
+      await syncNow(true);
     } else toast(res.error||'Error','error');
   }catch(e){ toast('Network error','error'); }
 }
 
-// ─── QUESTIONS ───────────────────────────────────────────────────────
+// ── QUESTIONS ────────────────────────────────────────────────────────
 const qTypeIcons = {short:'fas fa-font',paragraph:'fas fa-align-left',yesno:'fas fa-toggle-on',mcq:'fas fa-dot-circle',checkbox:'fas fa-check-square',dropdown:'fas fa-chevron-down',linear:'fas fa-sliders-h',rating:'fas fa-star',number:'fas fa-hashtag',date:'fas fa-calendar',time:'fas fa-clock'};
 
 function qTypeLabel(t){
@@ -831,7 +891,7 @@ async function addQuestion(){
   }
   try{
     const r = await apiPost({action:'addQuestion',text,type,scheduleType:schedType,scheduleValue:schedVal,options});
-    if(r.success){ toast('Question saved!','success'); closeModal('addQuestionModal'); resetQuestionForm(); await syncNow(); }
+    if(r.success){ toast('Question saved!','success'); closeModal('addQuestionModal'); resetQuestionForm(); await syncNow(true); }
     else toast(r.error||'Error','error');
   }catch(e){ toast('Network error','error'); }
 }
@@ -840,7 +900,7 @@ async function deleteQuestion(id){
   if(!confirm('Delete this question? Existing responses will be retained.')) return;
   try{
     const r = await apiPost({action:'deleteQuestion',id});
-    if(r.success){ toast('Question deleted','success'); await syncNow(); }
+    if(r.success){ toast('Question deleted','success'); await syncNow(true); }
     else toast(r.error||'Error','error');
   }catch(e){ toast('Network error','error'); }
 }
@@ -883,7 +943,7 @@ function addOption(){
 }
 function toggleDay(btn){ btn.classList.toggle('selected'); updateSchedPreview(); }
 
-// ─── RESPONSES ───────────────────────────────────────────────────────
+// ── RESPONSES ────────────────────────────────────────────────────────
 function populateRespQuestions(){
   const sel = document.getElementById('respQuestion');
   const cur = sel.value;
@@ -959,7 +1019,7 @@ function renderResponseGrid(){
   </div>`;
 }
 
-// ─── REPORTS ─────────────────────────────────────────────────────────
+// ── REPORTS ──────────────────────────────────────────────────────────
 function switchReport(btn,type){
   document.querySelectorAll('.report-tab').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
@@ -1041,7 +1101,7 @@ function renderMonthlyReport(reps,month,year,el){
   el.innerHTML=html;
 }
 
-// ─── DOWNLOADS ───────────────────────────────────────────────────────
+// ── DOWNLOADS ────────────────────────────────────────────────────────
 function downloadExcel(){
   const submittedMap={};
   currentResponses.forEach(r=>{
@@ -1137,7 +1197,7 @@ async function downloadPendingPNG(){
   target.innerHTML='';
 }
 
-// ─── SETTINGS ────────────────────────────────────────────────────────
+// ── SETTINGS ─────────────────────────────────────────────────────────
 function toggleMulti(){
   allowMulti=!allowMulti;
   document.getElementById('multiToggle').classList.toggle('on',allowMulti);
@@ -1152,7 +1212,7 @@ async function saveSettings(){
   }catch(e){ toast('Network error','error'); }
 }
 
-// ─── MODALS / TOAST ──────────────────────────────────────────────────
+// ── MODALS / TOAST ───────────────────────────────────────────────────
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.overlay').forEach(o=>{
@@ -1179,8 +1239,7 @@ window.addEventListener('load',()=>{
   document.getElementById('reportMonth').value=new Date().getMonth()+1;
   document.getElementById('reportYear').value=new Date().getFullYear();
   document.getElementById('apiUrlBadge').textContent=API.length>40?API.slice(0,40)+'…':API;
-  syncNow();
-  startSync();
+  syncNow(true).then(startSync);
 });
 </script>
 </body>
